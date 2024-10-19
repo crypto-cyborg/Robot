@@ -1,61 +1,109 @@
 ﻿using BinanceTradingBot.Interfaces;
 using BinanceTradingBot.Models;
 using Microsoft.ML;
+using System;
+using System.Collections.Generic;
+using System.Linq;
 
 namespace BinanceTradingBot.Services
 {
     public class SharedTradePredictionModel : ITradePredictionModel
     {
         private readonly MLContext _mlContext;
-        private ITransformer _model;
+        private ITransformer _linearRegressionModel;
+        private ITransformer _decisionTreeModel;
+        private ITransformer _neuralNetworkModel;
 
         public SharedTradePredictionModel()
         {
             _mlContext = new MLContext();
-            LoadOrTrainModel();
+            LoadOrTrainModels();
+        }
+
+        private void LoadOrTrainModels()
+        {
+            if (System.IO.File.Exists("LinearRegressionModel.zip"))
+            {
+                _linearRegressionModel = _mlContext.Model.Load("LinearRegressionModel.zip", out var _);
+                _decisionTreeModel = _mlContext.Model.Load("DecisionTreeModel.zip", out var _);
+                _neuralNetworkModel = _mlContext.Model.Load("NeuralNetworkModel.zip", out var _);
+                Console.WriteLine("Models loaded successfully.");
+            }
+            else
+            {
+                Console.WriteLine("No models found. Please train the models with training data.");
+            }
+        }
+
+        public void LoadOrTrainModel(IEnumerable<TradeData> trainingData)
+        {
+            var dataView = LoadTrainingData(trainingData);
+
+            if (dataView != null)
+            {
+                TrainAndSaveModels(dataView);
+            }
+            else
+            {
+                Console.WriteLine("No training data provided.");
+            }
+        }
+
+        private IDataView LoadTrainingData(IEnumerable<TradeData> trainingData)
+        {
+            if (trainingData == null || !trainingData.Any())
+            {
+                Console.WriteLine("No training data available.");
+                return null;
+            }
+
+            return _mlContext.Data.LoadFromEnumerable(trainingData);
+        }
+
+        private void TrainAndSaveModels(IDataView dataView)
+        {
+            // Линейная регрессия с использованием SDCA
+            var linearRegressionPipeline = _mlContext.Transforms.Concatenate("Features", nameof(TradeData.Price), nameof(TradeData.Macd), nameof(TradeData.Signal))
+                .Append(_mlContext.Regression.Trainers.Sdca());
+            _linearRegressionModel = linearRegressionPipeline.Fit(dataView);
+            _mlContext.Model.Save(_linearRegressionModel, dataView.Schema, "LinearRegressionModel.zip");
+
+            // Дерево решений
+            var decisionTreePipeline = _mlContext.Transforms.Concatenate("Features", nameof(TradeData.Price), nameof(TradeData.Macd), nameof(TradeData.Signal))
+                .Append(_mlContext.Regression.Trainers.FastTree());
+            _decisionTreeModel = decisionTreePipeline.Fit(dataView);
+            _mlContext.Model.Save(_decisionTreeModel, dataView.Schema, "DecisionTreeModel.zip");
+
+            // Нейронная сеть
+            var neuralNetworkPipeline = _mlContext.Transforms.Concatenate("Features", nameof(TradeData.Price), nameof(TradeData.Macd), nameof(TradeData.Signal))
+                .Append(_mlContext.MulticlassClassification.Trainers.LbfgsMaximumEntropy());
+            _neuralNetworkModel = neuralNetworkPipeline.Fit(dataView);
+            _mlContext.Model.Save(_neuralNetworkModel, dataView.Schema, "NeuralNetworkModel.zip");
+
+            Console.WriteLine("Models trained and saved.");
         }
 
         public string Predict(TradeData input)
         {
-            var predictionEngine = _mlContext.Model.CreatePredictionEngine<TradeData, TradePrediction>(_model);
-            var prediction = predictionEngine.Predict(input);
-            return prediction.Trend ?? "neutral";
-        }
+            var predictionEngine = _mlContext.Model.CreatePredictionEngine<TradeData, TradePrediction>(_linearRegressionModel);
+            var linearRegressionPrediction = predictionEngine.Predict(input);
 
-        private void LoadOrTrainModel()
-        {
-            var modelPath = "SharedModel.zip";
+            predictionEngine = _mlContext.Model.CreatePredictionEngine<TradeData, TradePrediction>(_decisionTreeModel);
+            var decisionTreePrediction = predictionEngine.Predict(input);
 
-            if (System.IO.File.Exists(modelPath))
+            predictionEngine = _mlContext.Model.CreatePredictionEngine<TradeData, TradePrediction>(_neuralNetworkModel);
+            var neuralNetworkPrediction = predictionEngine.Predict(input);
+
+            if (linearRegressionPrediction.Trend == decisionTreePrediction.Trend)
             {
-                _model = _mlContext.Model.Load(modelPath, out _);
-                System.Console.WriteLine("Model loaded successfully.");
+                return linearRegressionPrediction.Trend;
             }
-            else
+            else if (neuralNetworkPrediction.Trend == decisionTreePrediction.Trend)
             {
-                var data = LoadTrainingData();
-                var dataView = _mlContext.Data.LoadFromEnumerable(data);
-
-                var pipeline = _mlContext.Transforms.Conversion.MapValueToKey("Label", nameof(TradeData.Trend))
-                    .Append(_mlContext.Transforms.Concatenate("Features", nameof(TradeData.Price), nameof(TradeData.MovingAverage), nameof(TradeData.Macd), nameof(TradeData.Signal)))
-                    .Append(_mlContext.Transforms.NormalizeMinMax("Features"))
-                    .Append(_mlContext.MulticlassClassification.Trainers.SdcaMaximumEntropy())
-                    .Append(_mlContext.Transforms.Conversion.MapKeyToValue("PredictedLabel"));
-
-                _model = pipeline.Fit(dataView);
-                _mlContext.Model.Save(_model, dataView.Schema, modelPath);
-                System.Console.WriteLine("Model trained and saved successfully.");
+                return neuralNetworkPrediction.Trend;
             }
-        }
 
-        private IEnumerable<TradeData> LoadTrainingData()
-        {
-            return new List<TradeData>
-            {
-                new TradeData { Price = 45000, MovingAverage = 44000, Macd = 1.5m, Signal = 1.2m, Trend = "long" },
-                new TradeData { Price = 46000, MovingAverage = 45000, Macd = 1.8m, Signal = 1.4m, Trend = "long" },
-                new TradeData { Price = 44000, MovingAverage = 43000, Macd = -1.0m, Signal = -0.8m, Trend = "short" }
-            };
+            return "neutral";
         }
     }
 }

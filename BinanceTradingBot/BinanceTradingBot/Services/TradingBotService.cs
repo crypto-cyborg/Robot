@@ -1,145 +1,107 @@
-﻿using BinanceTradingBot.BinanceResponses;
-using BinanceTradingBot.Interfaces;
+﻿using BinanceTradingBot.Interfaces;
 using BinanceTradingBot.Models;
-using RestSharp;
-using System.Collections.Concurrent;
-
+using System.Collections.Generic;
+using System.Threading.Tasks;
 
 namespace BinanceTradingBot.Services
 {
     public class TradingBotService : ITradingBotService
     {
-        private readonly ConcurrentDictionary<string, BotInstance> _activeBots;
-        private readonly ITradePredictionModel _predictionModel;
+        private readonly ITradePredictionModel _tradePredictionModel;
         private readonly ITradeExecutionService _tradeExecutionService;
+        private readonly BinanceRestClient _binanceRestClient;
 
-        public TradingBotService(ITradePredictionModel predictionModel, ITradeExecutionService tradeExecutionService)
+        public TradingBotService(ITradePredictionModel tradePredictionModel, ITradeExecutionService tradeExecutionService)
         {
-            _activeBots = new ConcurrentDictionary<string, BotInstance>();
-            _predictionModel = predictionModel;
+            _tradePredictionModel = tradePredictionModel;
             _tradeExecutionService = tradeExecutionService;
         }
 
-        public async Task StartBotAsync(string apiKey, string apiSecret, string symbol, decimal tradeAmount, int leverage)
+        public async Task StartBot(BotInstance botInstance)
         {
-            if (_activeBots.ContainsKey(apiKey))
+            var historicalData = await LoadMultiTimeframeData(botInstance.Symbol);
+
+            _tradePredictionModel.LoadOrTrainModel(historicalData);
+
+            foreach (var tradeData in historicalData.DailyData)
             {
-                Console.WriteLine($"Bot already running for API Key: {apiKey}");
-                return;
+                var prediction = _tradePredictionModel.Predict(tradeData);
+
+                if (prediction == "long")
+                {
+                    _tradeExecutionService.ExecuteBuy(botInstance, tradeData);
+                }
+                else if (prediction == "short")
+                {
+                    _tradeExecutionService.ExecuteSell(botInstance, tradeData);
+                }
             }
-
-            var binanceClient = new BinanceRestClient("https://api.binance.com", apiKey, apiSecret);
-
-            var botInstance = new BotInstance
-            {
-                ApiKey = apiKey,
-                ApiSecret = apiSecret,
-                Symbol = symbol,
-                TradeAmount = tradeAmount,
-                Leverage = leverage, 
-                Client = binanceClient,
-                PredictionModel = _predictionModel,
-                CancellationTokenSource = new CancellationTokenSource()
-            };
-
-            
-
-            _activeBots[apiKey] = botInstance;
-
-            Console.WriteLine($"Starting bot for API Key: {apiKey}");
-
-            _ = Task.Run(() => ExecuteBotLogicAsync(botInstance.CancellationTokenSource.Token, botInstance));
         }
 
-        public void StopBot(string apiKey)
+        public void StopBot(BotInstance botInstance)
         {
-            if (_activeBots.TryGetValue(apiKey, out var botInstance))
+            if (botInstance.CancellationTokenSource != null)
             {
                 botInstance.CancellationTokenSource.Cancel();
-                _activeBots.TryRemove(apiKey, out _);
-                Console.WriteLine($"Bot stopped for API Key: {apiKey}");
+                Console.WriteLine($"Bot for {botInstance.Symbol} stopped.");
             }
             else
             {
-                Console.WriteLine($"No active bot found for API Key: {apiKey}");
+                Console.WriteLine("BotInstance has no active cancellation token.");
             }
         }
 
-        private async Task ExecuteBotLogicAsync(CancellationToken cancellationToken, BotInstance botInstance)
-        {            
-            
-            while (!cancellationToken.IsCancellationRequested)
-            {
-                var trendData = await GetTrendDataAsync(botInstance.Client, botInstance.Symbol);
-                if (trendData == null)
-                {
-                    Console.WriteLine("Failed to get trend data.");
-                    await Task.Delay(TimeSpan.FromMinutes(5), cancellationToken);
-                    continue;
-                }
-
-                var trend = botInstance.PredictionModel.Predict(trendData);
-
-
-                await _tradeExecutionService.ExecuteTradeAsync(botInstance, trend);
-                await Task.Delay(TimeSpan.FromMinutes(5), cancellationToken);
-            }
-        }
-
-        private async Task<TradeData> GetTrendDataAsync(BinanceRestClient client, string symbol)
+        public async Task<MultiTimeframeData> LoadMultiTimeframeData(string symbol)
         {
-            var request = new RestRequest("/api/v3/klines", Method.Get);
-            request.AddParameter("symbol", symbol);
-            request.AddParameter("interval", "1m");
+            var klines1d = await _binanceRestClient.GetKlinesAsync(symbol, "1d", 100);
+            var klines4h = await _binanceRestClient.GetKlinesAsync(symbol, "4h", 100);
+            var klines5m = await _binanceRestClient.GetKlinesAsync(symbol, "5m", 100);
+            var klines1m = await _binanceRestClient.GetKlinesAsync(symbol, "1m", 100);
 
-            try
+            var multiTimeframeData = new MultiTimeframeData
             {
-                var response = await client.ExecuteAsync(request, Method.Get);
-                var klines = Newtonsoft.Json.JsonConvert.DeserializeObject<List<Kline>>(response.Content);
-
-                if (klines == null || !klines.Any())
+                DailyData = klines1d.Select(k => new TradeData
                 {
-                    Console.WriteLine("No klines data returned.");
-                    return null;
-                }
+                    Price = k.Close,
+                    MovingAverage = (k.High + k.Low) / 2,
+                    Macd = k.High - k.Low,
+                    Signal = k.Close,
+                    Trend = k.Close > k.Open ? "long" : "short",
+                    Symbol = symbol
+                }).ToList(),
 
-                var latestKline = klines.Last();
-                return new TradeData
+                FourHourData = klines4h.Select(k => new TradeData
                 {
-                    Price = decimal.Parse(latestKline.Close),
-                    MovingAverage = decimal.Parse(latestKline.High),
-                    Macd = decimal.Parse(latestKline.Low),
-                    Signal = decimal.Parse(latestKline.Open)
-                };
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error fetching trend data: {ex.Message}");
-                return null;
-            }
-        }
+                    Price = k.Close,
+                    MovingAverage = (k.High + k.Low) / 2,
+                    Macd = k.High - k.Low,
+                    Signal = k.Close,
+                    Trend = k.Close > k.Open ? "long" : "short",
+                    Symbol = symbol
+                }).ToList(),
 
-
-        public async Task<bool> CheckIfPositionOpenAsync(BotInstance botInstance)
-        {
-            var request = new RestRequest("/fapi/v2/positionRisk", Method.Get);
-            request.AddParameter("symbol", botInstance.Symbol);
-
-            var response = await botInstance.Client.ExecuteAsync(request, Method.Get, true);
-
-            if (response.IsSuccessful)
-            {
-                var positions = Newtonsoft.Json.JsonConvert.DeserializeObject<List<Position>>(response.Content);
-                var position = positions.FirstOrDefault(p => p.Symbol == botInstance.Symbol);
-                if (position != null && position.PositionAmt != 0)
+                FiveMinuteData = klines5m.Select(k => new TradeData
                 {
-                    Console.WriteLine($"Open position found for {botInstance.Symbol}");
-                    return true;
-                }
-            }
+                    Price = k.Close,
+                    MovingAverage = (k.High + k.Low) / 2,
+                    Macd = k.High - k.Low,
+                    Signal = k.Close,
+                    Trend = k.Close > k.Open ? "long" : "short",
+                    Symbol = symbol
+                }).ToList(),
 
-            return false;
+                OneMinuteData = klines1m.Select(k => new TradeData
+                {
+                    Price = k.Close,
+                    MovingAverage = (k.High + k.Low) / 2,
+                    Macd = k.High - k.Low,
+                    Signal = k.Close,
+                    Trend = k.Close > k.Open ? "long" : "short",
+                    Symbol = symbol
+                }).ToList()
+            };
+
+            return multiTimeframeData;
         }
     }
-
 }

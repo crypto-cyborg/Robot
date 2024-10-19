@@ -1,55 +1,33 @@
-﻿using BinanceTradingBot.Interfaces;
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
+using BinanceTradingBot.Interfaces;
+using BinanceTradingBot.Models;
 
-namespace BinanceTradingBot.Controllers
+
+namespace BinanceTradingBot.Controllers;
+
+[ApiController]
+[Route("api/[controller]")]
+public class TradingBotController : ControllerBase
 {
-    [ApiController]
-    [Route("api/[controller]")]
-    public class TradingBotController : ControllerBase
+    private readonly ITradingBotService _tradingBotService;
+
+    public TradingBotController(ITradingBotService tradingBotService)
     {
-        private readonly ITradingBotService _tradingBotService;
-
-        public TradingBotController(ITradingBotService tradingBotService)
-        {
-            _tradingBotService = tradingBotService;
-        }
-
-        [HttpPost("start")]
-        public async Task<IActionResult> StartBot([FromBody] StartBotRequest request)
-        {
-            if (string.IsNullOrWhiteSpace(request.ApiKey) || string.IsNullOrWhiteSpace(request.ApiSecret))
-            {
-                return BadRequest("API Key and Secret are required.");
-            }
-
-            await _tradingBotService.StartBotAsync(request.ApiKey, request.ApiSecret, request.Symbol, request.TradeAmount, request.Leverage);
-            return Ok("Bot started successfully.");
-        }
-
-        [HttpPost("stop")]
-        public IActionResult StopBot([FromBody] StopBotRequest request)
-        {
-            if (string.IsNullOrWhiteSpace(request.ApiKey))
-            {
-                return BadRequest("API Key is required.");
-            }
-
-            _tradingBotService.StopBot(request.ApiKey);
-            return Ok("Bot stopped successfully.");
-        }
+        _tradingBotService = tradingBotService;
     }
 
-    public class StartBotRequest
+    [HttpPost("start")]
+    public async Task<IActionResult> StartBot([FromBody] BotInstance botInstance)
     {
-        public string ApiKey { get; set; }
-        public string ApiSecret { get; set; }
-        public string Symbol { get; set; }
-        public decimal TradeAmount { get; set; }
-        public int Leverage { get; set; } 
+        await _tradingBotService.StartBot(botInstance);
+        return Ok("Bot started successfully.");
     }
 
-    public class StopBotRequest
+    [HttpPost("stop")]
+    public IActionResult StopBot([FromBody] BotInstance botInstance)
     {
-        public string ApiKey { get; set; }
+        _tradingBotService.StopBot(botInstance);
+        return Ok("Bot stopped successfully.");
     }
 }
+

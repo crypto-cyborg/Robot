@@ -4,12 +4,10 @@ using Microsoft.OpenApi.Models;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Регистрация сервисов
 builder.Services.AddSingleton<ITradingBotService, TradingBotService>();
 builder.Services.AddSingleton<ITradePredictionModel, SharedTradePredictionModel>();
 builder.Services.AddSingleton<ITradeExecutionService, TradeExecutionService>();
 
-// Добавление контроллеров
 builder.Services.AddControllers();
 builder.Services.AddSwaggerGen(c =>
 {
@@ -22,7 +20,6 @@ builder.Services.AddSwaggerGen(c =>
 
 var app = builder.Build();
 
-// Конфигурация HTTP-запросов
 app.UseHttpsRedirection();
 app.UseAuthorization();
 app.UseSwagger();

@@ -1,7 +1,11 @@
-﻿namespace BinanceTradingBot.Interfaces;
+﻿using BinanceTradingBot.Models;
+using BinanceTradingBot.Services;
 
-public interface ITradingBotService
+namespace BinanceTradingBot.Interfaces
 {
-    Task StartBotAsync(string apiKey, string apiSecret, string symbol, decimal tradeAmount, int leverage);
-    void StopBot(string apiKey);
+    public interface ITradingBotService
+    {
+        Task StartBotAsync(string apiKey, string apiSecret, string symbol, decimal tradeAmount, int leverage);
+        void StopBot(string apiKey);
+    }
 }

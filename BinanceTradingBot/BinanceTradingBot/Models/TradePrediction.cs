@@ -1,6 +1,4 @@
-﻿using Microsoft.ML.Data;
-
-namespace BinanceTradingBot.Models;
+﻿namespace BinanceTradingBot.Models;
 
 public class TradePrediction
 {
