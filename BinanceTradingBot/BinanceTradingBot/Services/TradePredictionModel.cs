@@ -7,14 +7,14 @@ using System.Linq;
 
 namespace BinanceTradingBot.Services
 {
-    public class SharedTradePredictionModel : ITradePredictionModel
+    public class TradePredictionModel : ITradePredictionModel
     {
         private readonly MLContext _mlContext;
         private ITransformer _linearRegressionModel;
         private ITransformer _decisionTreeModel;
         private ITransformer _neuralNetworkModel;
 
-        public SharedTradePredictionModel()
+        public TradePredictionModel()
         {
             _mlContext = new MLContext();
             LoadOrTrainModels();

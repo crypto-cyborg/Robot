@@ -9,4 +9,5 @@ public class TradeData
     public string Trend { get; set; }
     public string Symbol { get; set; }
     public decimal Quantity { get; set; }
+    public int Leverage { get; set; }
 }

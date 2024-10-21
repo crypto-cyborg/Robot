@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using BinanceTradingBot.Interfaces;
 using BinanceTradingBot.Models;
+using BinanceTradingBot.Services;
 
 
 namespace BinanceTradingBot.Controllers;
@@ -10,6 +11,8 @@ namespace BinanceTradingBot.Controllers;
 public class TradingBotController : ControllerBase
 {
     private readonly ITradingBotService _tradingBotService;
+    private string binanceReal = "https://api.binance.com/api";
+    private string binanceTestnet = "https://testnet.binance.vision/api";
 
     public TradingBotController(ITradingBotService tradingBotService)
     {
@@ -17,16 +20,24 @@ public class TradingBotController : ControllerBase
     }
 
     [HttpPost("start")]
-    public async Task<IActionResult> StartBot([FromBody] BotInstance botInstance)
+    public async Task<IActionResult> StartBot([FromBody] StartBotRequest request)
     {
-        await _tradingBotService.StartBot(botInstance);
+        BotInstance botInstance = new BotInstance()
+        {
+            Symbol = request.Symbol,
+            TradeAmount = request.TradeAmount,
+            Leverage = request.Leverage,
+            Client = new BinanceRestClient(binanceTestnet, request.ApiKey, request.ApiSecret),            
+        };
+
+        await _tradingBotService.StartBotAsync(botInstance);
         return Ok("Bot started successfully.");
     }
 
     [HttpPost("stop")]
-    public IActionResult StopBot([FromBody] BotInstance botInstance)
+    public IActionResult StopBot([FromBody] StopBotRequest request)
     {
-        _tradingBotService.StopBot(botInstance);
+        _tradingBotService.StopBot(request.ApiKey);
         return Ok("Bot stopped successfully.");
     }
 }

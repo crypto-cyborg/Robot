@@ -24,15 +24,15 @@ public class Kline
     [JsonProperty("closeTime")]
     public long CloseTime { get; set; }
 
-    [JsonProperty("baseAssetVolume")]
-    public decimal BaseAssetVolume { get; set; }
+    [JsonProperty("quoteAssetVolume")]
+    public decimal QuoteAssetVolume { get; set; }
 
     [JsonProperty("numberOfTrades")]
     public int NumberOfTrades { get; set; }
 
-    [JsonProperty("takerBuyVolume")]
-    public decimal TakerBuyVolume { get; set; }
-
     [JsonProperty("takerBuyBaseAssetVolume")]
     public decimal TakerBuyBaseAssetVolume { get; set; }
+
+    [JsonProperty("takerBuyQuoteAssetVolume")]
+    public decimal TakerBuyQuoteAssetVolume { get; set; }
 }
