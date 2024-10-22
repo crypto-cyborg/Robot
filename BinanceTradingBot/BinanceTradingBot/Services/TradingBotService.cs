@@ -66,23 +66,35 @@ namespace BinanceTradingBot.Services
         }
 
         private async Task ExecuteBotLogicAsync(CancellationToken cancellationToken, BotInstance botInstance)
-        {            
-            
+        {
             while (!cancellationToken.IsCancellationRequested)
             {
+                // Проверка наличия открытой позиции
+                bool isPositionOpen = await CheckIfPositionOpenAsync(botInstance);
+
+                if (isPositionOpen)
+                {
+                    Console.WriteLine($"Position is already open for {botInstance.Symbol}. Skipping new trade.");
+                    await Task.Delay(TimeSpan.FromSeconds(10), cancellationToken); // Ждем 10 секунд перед следующей проверкой
+                    continue;
+                }
+
+                // Получаем данные рынка и предсказываем тренд
                 var trendData = await GetTrendDataAsync(botInstance.Client, botInstance.Symbol);
                 if (trendData == null)
                 {
                     Console.WriteLine("Failed to get trend data.");
-                    await Task.Delay(TimeSpan.FromMinutes(5), cancellationToken);
+                    await Task.Delay(TimeSpan.FromSeconds(10), cancellationToken); // Ждем 10 секунд
                     continue;
                 }
 
                 var trend = botInstance.PredictionModel.Predict(trendData);
 
-
+                // Выполняем сделку, если позиция не открыта
                 await _tradeExecutionService.ExecuteTradeAsync(botInstance, trend);
-                await Task.Delay(TimeSpan.FromMinutes(5), cancellationToken);
+
+                // Подождем 10 секунд перед следующей итерацией
+                await Task.Delay(TimeSpan.FromSeconds(10), cancellationToken);
             }
         }
 

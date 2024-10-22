@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "dgSpecHash": "dkdXibWf8/M=",
+  "dgSpecHash": "cPJuJaKgMW0=",
   "success": true,
-  "projectFilePath": "/Users/rustam/Documents/Programming/StepProjects/BinanceTradingBot/BinanceTradingBot/BinanceTradingBot.csproj",
+  "projectFilePath": "/Users/rustam/Documents/Programming/TradingBot/BinanceTradingBot/BinanceTradingBot/BinanceTradingBot.csproj",
   "expectedPackageFiles": [
     "/Users/rustam/.nuget/packages/cryptoexchange.net/8.0.0/cryptoexchange.net.8.0.0.nupkg.sha512",
     "/Users/rustam/.nuget/packages/microsoft.extensions.apidescription.server/6.0.5/microsoft.extensions.apidescription.server.6.0.5.nupkg.sha512",

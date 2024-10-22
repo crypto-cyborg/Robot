@@ -2664,11 +2664,11 @@
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "/Users/rustam/Documents/Programming/StepProjects/BinanceTradingBot/BinanceTradingBot/BinanceTradingBot.csproj",
+      "projectUniqueName": "/Users/rustam/Documents/Programming/TradingBot/BinanceTradingBot/BinanceTradingBot/BinanceTradingBot.csproj",
       "projectName": "BinanceTradingBot",
-      "projectPath": "/Users/rustam/Documents/Programming/StepProjects/BinanceTradingBot/BinanceTradingBot/BinanceTradingBot.csproj",
+      "projectPath": "/Users/rustam/Documents/Programming/TradingBot/BinanceTradingBot/BinanceTradingBot/BinanceTradingBot.csproj",
       "packagesPath": "/Users/rustam/.nuget/packages/",
-      "outputPath": "/Users/rustam/Documents/Programming/StepProjects/BinanceTradingBot/BinanceTradingBot/obj/",
+      "outputPath": "/Users/rustam/Documents/Programming/TradingBot/BinanceTradingBot/BinanceTradingBot/obj/",
       "projectStyle": "PackageReference",
       "configFilePaths": [
         "/Users/rustam/.nuget/NuGet/NuGet.Config"
