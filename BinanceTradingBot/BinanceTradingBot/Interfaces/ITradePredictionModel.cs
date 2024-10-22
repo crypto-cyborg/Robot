@@ -5,5 +5,5 @@ namespace BinanceTradingBot.Interfaces;
 public interface ITradePredictionModel
 {
     string Predict(TradeData input);
-    void LoadOrTrainModel(IEnumerable<TradeData> trainingData);
+    void LoadOrTrainModel(MultiTimeframeData multiTimeframeData);
 }

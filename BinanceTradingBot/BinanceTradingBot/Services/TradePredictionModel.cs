@@ -35,9 +35,9 @@ namespace BinanceTradingBot.Services
             }
         }
 
-        public void LoadOrTrainModel(IEnumerable<TradeData> trainingData)
+        public void LoadOrTrainModel(MultiTimeframeData multiTimeframeData)
         {
-            var dataView = LoadTrainingData(trainingData);
+            var dataView = LoadTrainingData(multiTimeframeData);
 
             if (dataView != null)
             {
@@ -48,33 +48,56 @@ namespace BinanceTradingBot.Services
                 Console.WriteLine("No training data provided.");
             }
         }
-
-        private IDataView LoadTrainingData(IEnumerable<TradeData> trainingData)
+        
+        
+        private IDataView LoadTrainingData(MultiTimeframeData multiTimeframeData)
         {
-            if (trainingData == null || !trainingData.Any())
+            try
             {
-                Console.WriteLine("No training data available.");
-                return null;
-            }
+                var allTradeData = new List<TradeData>();
+                
+                foreach (var property in typeof(MultiTimeframeData).GetProperties())
+                {
+                    if (property.PropertyType == typeof(List<TradeData>))
+                    {
+                        var res = property.GetValue(multiTimeframeData) as List<TradeData>;
 
-            return _mlContext.Data.LoadFromEnumerable(trainingData);
+                        if (res != null && res.Any())
+                        {
+                            allTradeData.AddRange(res); 
+                        }
+                    }
+                }
+
+                if (!allTradeData.Any())
+                {
+                    Console.WriteLine("No training data available.");
+                    return _mlContext.Data.LoadFromEnumerable(new List<TradeData>()); 
+                }
+
+                return _mlContext.Data.LoadFromEnumerable(allTradeData);
+            }
+            catch (Exception e)
+            {
+                throw new Exception($"Failed to load training data: {e.Message}");
+            }
         }
 
         private void TrainAndSaveModels(IDataView dataView)
         {
-            // Линейная регрессия с использованием SDCA
+            
             var linearRegressionPipeline = _mlContext.Transforms.Concatenate("Features", nameof(TradeData.Price), nameof(TradeData.Macd), nameof(TradeData.Signal))
                 .Append(_mlContext.Regression.Trainers.Sdca());
             _linearRegressionModel = linearRegressionPipeline.Fit(dataView);
             _mlContext.Model.Save(_linearRegressionModel, dataView.Schema, "LinearRegressionModel.zip");
 
-            // Дерево решений
+            
             var decisionTreePipeline = _mlContext.Transforms.Concatenate("Features", nameof(TradeData.Price), nameof(TradeData.Macd), nameof(TradeData.Signal))
                 .Append(_mlContext.Regression.Trainers.FastTree());
             _decisionTreeModel = decisionTreePipeline.Fit(dataView);
             _mlContext.Model.Save(_decisionTreeModel, dataView.Schema, "DecisionTreeModel.zip");
 
-            // Нейронная сеть
+            
             var neuralNetworkPipeline = _mlContext.Transforms.Concatenate("Features", nameof(TradeData.Price), nameof(TradeData.Macd), nameof(TradeData.Signal))
                 .Append(_mlContext.MulticlassClassification.Trainers.LbfgsMaximumEntropy());
             _neuralNetworkModel = neuralNetworkPipeline.Fit(dataView);
@@ -101,6 +124,10 @@ namespace BinanceTradingBot.Services
             else if (neuralNetworkPrediction.Trend == decisionTreePrediction.Trend)
             {
                 return neuralNetworkPrediction.Trend;
+            }
+            else if (neuralNetworkPrediction.Trend == decisionTreePrediction.Trend)
+            {
+                return decisionTreePrediction.Trend;
             }
 
             return "neutral";

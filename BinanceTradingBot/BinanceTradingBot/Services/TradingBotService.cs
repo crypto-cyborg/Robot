@@ -11,7 +11,7 @@ public class TradingBotService : ITradingBotService
 {
     private readonly ITradePredictionModel _tradePredictionModel;
     private readonly ConcurrentDictionary<string, BotInstance> _bots = new ConcurrentDictionary<string, BotInstance>();
-    private BinanceRestClient _binanceRestClient;
+    
 
     public TradingBotService(ITradePredictionModel tradePredictionModel)
     {
@@ -22,9 +22,7 @@ public class TradingBotService : ITradingBotService
     {
         if (_bots.TryAdd(botInstance.ApiKey, botInstance))
         {
-            _binanceRestClient = botInstance.Client;
-
-            var hasOpenPosition = await _binanceRestClient.CheckOpenPositionAsync(botInstance.Symbol);
+            var hasOpenPosition = await botInstance.Client.CheckOpenPositionAsync(botInstance.Symbol);
 
             if (hasOpenPosition)
             {
@@ -32,7 +30,7 @@ public class TradingBotService : ITradingBotService
                 return;
             }
 
-            var historicalData = await LoadMultiTimeframeData(botInstance.Symbol);
+            var historicalData = await LoadMultiTimeframeData(botInstance);
 
             _tradePredictionModel.LoadOrTrainModel(historicalData);
 
@@ -74,12 +72,12 @@ public class TradingBotService : ITradingBotService
         }
     }
 
-    private async Task<MultiTimeframeData> LoadMultiTimeframeData(string symbol)
+    private async Task<MultiTimeframeData> LoadMultiTimeframeData(BotInstance botInstance)
     {
-        var klines1d = await _binanceRestClient.GetKlinesAsync(symbol, "1d", 100);
-        var klines4h = await _binanceRestClient.GetKlinesAsync(symbol, "4h", 100);
-        var klines5m = await _binanceRestClient.GetKlinesAsync(symbol, "5m", 100);
-        var klines1m = await _binanceRestClient.GetKlinesAsync(symbol, "1m", 100);
+        var klines1d = await botInstance.Client.GetKlinesAsync(botInstance.Symbol, "1d", 100);
+        var klines4h = await botInstance.Client.GetKlinesAsync(botInstance.Symbol, "4h", 100);
+        var klines5m = await botInstance.Client.GetKlinesAsync(botInstance.Symbol, "5m", 100);
+        var klines1m = await botInstance.Client.GetKlinesAsync(botInstance.Symbol, "1m", 100);
 
         var multiTimeframeData = new MultiTimeframeData
         {
@@ -90,7 +88,7 @@ public class TradingBotService : ITradingBotService
                 Macd = k.High - k.Low,
                 Signal = k.Close,
                 Trend = k.Close > k.Open ? "long" : "short",
-                Symbol = symbol
+                Symbol = botInstance.Symbol
             }).ToList(),
 
             FourHourData = klines4h.Select(k => new TradeData
@@ -100,7 +98,7 @@ public class TradingBotService : ITradingBotService
                 Macd = k.High - k.Low,
                 Signal = k.Close,
                 Trend = k.Close > k.Open ? "long" : "short",
-                Symbol = symbol
+                Symbol = botInstance.Symbol
             }).ToList(),
 
             FiveMinuteData = klines5m.Select(k => new TradeData
@@ -110,7 +108,7 @@ public class TradingBotService : ITradingBotService
                 Macd = k.High - k.Low,
                 Signal = k.Close,
                 Trend = k.Close > k.Open ? "long" : "short",
-                Symbol = symbol
+                Symbol = botInstance.Symbol
             }).ToList(),
 
             OneMinuteData = klines1m.Select(k => new TradeData
@@ -120,7 +118,7 @@ public class TradingBotService : ITradingBotService
                 Macd = k.High - k.Low,
                 Signal = k.Close,
                 Trend = k.Close > k.Open ? "long" : "short",
-                Symbol = symbol
+                Symbol = botInstance.Symbol
             }).ToList()
         };
 
@@ -129,26 +127,25 @@ public class TradingBotService : ITradingBotService
 
     private async Task UpdateTrailingStopAsync(BotInstance botInstance, string trend)
     {
-        var currentPrice = await GetCurrentPriceAsync(botInstance.Symbol);
-        var atr = await CalculateATR(botInstance.Client, botInstance.Symbol, 14);
+        var currentPrice = await botInstance.Client.GetCurrentPriceAsync(botInstance.Symbol);
+        var atr = await CalculateATR(botInstance, 14);
 
         if (trend == "long")
         {
-            // Логика для длинной позиции
             var stopLossPrice = currentPrice - atr;
-            await SetStopLossOnBinance(botInstance, trend, stopLossPrice);
+            await botInstance.Client.SetStopLossAsync(botInstance, stopLossPrice);
         }
         else if (trend == "short")
         {
             // Логика для короткой позиции
             var stopLossPrice = currentPrice + atr;
-            await botInstance.Client.SetStopLossAsync(botInstance, trend, stopLossPrice);
+            await botInstance.Client.SetStopLossAsync(botInstance, stopLossPrice);
         }
     }
-
-    private async Task<decimal> CalculateATR(BinanceRestClient client, string symbol, int period)
+ 
+    private async Task<decimal> CalculateATR(BotInstance botInstance, int period)
     {
-        var klines = await GetKlinesAsync(client, symbol, "1d", period);
+        var klines = await botInstance.Client.GetKlinesAsync( botInstance.Symbol, "1d", period);
         var trueRanges = new List<decimal>();
 
         for (int i = 1; i < klines.Count; i++)
