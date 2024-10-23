@@ -10,51 +10,85 @@ namespace BinanceTradingBot.Services;
 public class TradingBotService : ITradingBotService
 {
     private readonly ITradePredictionModel _tradePredictionModel;
-    private readonly ConcurrentDictionary<string, BotInstance> _bots = new ConcurrentDictionary<string, BotInstance>();
+    private readonly ConcurrentDictionary<string, BotInstance> _bots;
     
 
-    public TradingBotService(ITradePredictionModel tradePredictionModel)
+    public TradingBotService()
     {
-        _tradePredictionModel = tradePredictionModel;
+        _tradePredictionModel = new TradePredictionModel();        
     }
 
     public async Task StartBotAsync(BotInstance botInstance)
     {
         if (_bots.TryAdd(botInstance.ApiKey, botInstance))
         {
-            var hasOpenPosition = await botInstance.Client.CheckOpenPositionAsync(botInstance.Symbol);
+            botInstance.CancellationTokenSource = new CancellationTokenSource();
 
-            if (hasOpenPosition)
+            await Task.Run(async () =>
             {
-                Console.WriteLine($"Уже есть открытая позиция для {botInstance.Symbol}. Бот не запущен.");
-                return;
-            }
-
-            var historicalData = await LoadMultiTimeframeData(botInstance);
-
-            _tradePredictionModel.LoadOrTrainModel(historicalData);
-
-            foreach (var tradeData in historicalData.DailyData)
-            {
-                var prediction = _tradePredictionModel.Predict(tradeData);
-
-                if (prediction == "long")
+                try
                 {
-                    botInstance.Client.ExecuteBuy(tradeData);
+                    string side = null;
+                    await _tradePredictionModel.InitializeOrTrainModelAsync(botInstance.Client, botInstance.Symbol);
+
+                    while (!botInstance.CancellationTokenSource.Token.IsCancellationRequested)
+                    {
+                        var hasOpenPosition = await botInstance.Client.CheckOpenPositionAsync(botInstance.Symbol);
+
+                        if (!hasOpenPosition)
+                        {
+                            await _tradePredictionModel.InitializeOrTrainModelAsync(botInstance.Client, botInstance.Symbol);
+                            
+                            
+
+                            foreach (var tradeData in historicalData.DailyData)
+                            {
+                                var prediction = _tradePredictionModel.Predict(tradeData);
+
+                                if (prediction == "long")
+                                {
+                                    await botInstance.Client.ExecuteBuy(botInstance);
+                                    side = "BUY";  
+                                    Console.WriteLine($"Executed BUY order for {botInstance.Symbol}.");
+                                    break;
+                                }
+                                else if (prediction == "short")
+                                {
+                                    await botInstance.Client.ExecuteSell(botInstance);
+                                    side = "SELL";  
+                                    Console.WriteLine($"Executed SELL order for {botInstance.Symbol}.");
+                                    break;
+                                }
+                            }
+                        }
+                        else
+                        {                           
+                            if (side != null)
+                            {
+                                Console.WriteLine($"Position is already open for {botInstance.Symbol}, updating trailing stop.");
+                                await UpdateTrailingStopAsync(botInstance, side);  
+                            }
+                        }                        
+                        await Task.Delay(TimeSpan.FromMinutes(1), botInstance.CancellationTokenSource.Token);
+                    }
                 }
-                else if (prediction == "short")
+                catch (OperationCanceledException)
                 {
-                    botInstance.Client.ExecuteSell(tradeData);
+                    Console.WriteLine("Bot operation has been canceled.");
                 }
-            }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Error running bot: {ex.Message}");
+                }
+            }, botInstance.CancellationTokenSource.Token);
         }
         else
         {
             Console.WriteLine("Bot with this API key is already running.");
             return;
         }
-       
     }
+
 
 
 
@@ -72,80 +106,40 @@ public class TradingBotService : ITradingBotService
         }
     }
 
-    private async Task<MultiTimeframeData> LoadMultiTimeframeData(BotInstance botInstance)
-    {
-        var klines1d = await botInstance.Client.GetKlinesAsync(botInstance.Symbol, "1d", 100);
-        var klines4h = await botInstance.Client.GetKlinesAsync(botInstance.Symbol, "4h", 100);
-        var klines5m = await botInstance.Client.GetKlinesAsync(botInstance.Symbol, "5m", 100);
-        var klines1m = await botInstance.Client.GetKlinesAsync(botInstance.Symbol, "1m", 100);
+   
 
-        var multiTimeframeData = new MultiTimeframeData
-        {
-            DailyData = klines1d.Select(k => new TradeData
-            {
-                Price = k.Close,
-                MovingAverage = (k.High + k.Low) / 2,
-                Macd = k.High - k.Low,
-                Signal = k.Close,
-                Trend = k.Close > k.Open ? "long" : "short",
-                Symbol = botInstance.Symbol
-            }).ToList(),
-
-            FourHourData = klines4h.Select(k => new TradeData
-            {
-                Price = k.Close,
-                MovingAverage = (k.High + k.Low) / 2,
-                Macd = k.High - k.Low,
-                Signal = k.Close,
-                Trend = k.Close > k.Open ? "long" : "short",
-                Symbol = botInstance.Symbol
-            }).ToList(),
-
-            FiveMinuteData = klines5m.Select(k => new TradeData
-            {
-                Price = k.Close,
-                MovingAverage = (k.High + k.Low) / 2,
-                Macd = k.High - k.Low,
-                Signal = k.Close,
-                Trend = k.Close > k.Open ? "long" : "short",
-                Symbol = botInstance.Symbol
-            }).ToList(),
-
-            OneMinuteData = klines1m.Select(k => new TradeData
-            {
-                Price = k.Close,
-                MovingAverage = (k.High + k.Low) / 2,
-                Macd = k.High - k.Low,
-                Signal = k.Close,
-                Trend = k.Close > k.Open ? "long" : "short",
-                Symbol = botInstance.Symbol
-            }).ToList()
-        };
-
-        return multiTimeframeData;
-    }
-
-    private async Task UpdateTrailingStopAsync(BotInstance botInstance, string trend)
+    private async Task UpdateTrailingStopAsync(BotInstance botInstance, string side)
     {
         var currentPrice = await botInstance.Client.GetCurrentPriceAsync(botInstance.Symbol);
-        var atr = await CalculateATR(botInstance, 14);
+        var atr = await CalculateATR(botInstance, 30);
+        
+        var adjustedAtr = atr / botInstance.Leverage;  
 
-        if (trend == "long")
+        if (side == "long")
         {
-            var stopLossPrice = currentPrice - atr;
-            await botInstance.Client.SetStopLossAsync(botInstance, stopLossPrice);
+            var newStopLossPrice = currentPrice - adjustedAtr;
+            
+            if (botInstance.PreviousStopLoss == null || newStopLossPrice > botInstance.PreviousStopLoss)
+            {
+                await botInstance.Client.SetStopLossAsync(botInstance, newStopLossPrice);
+                botInstance.PreviousStopLoss = newStopLossPrice;  
+            }
         }
-        else if (trend == "short")
+        else if (side == "short")
         {
-            // Логика для короткой позиции
-            var stopLossPrice = currentPrice + atr;
-            await botInstance.Client.SetStopLossAsync(botInstance, stopLossPrice);
+            var newStopLossPrice = currentPrice + adjustedAtr;
+            
+            if (botInstance.PreviousStopLoss == null || newStopLossPrice < botInstance.PreviousStopLoss)
+            {
+                await botInstance.Client.SetStopLossAsync(botInstance, newStopLossPrice);
+                botInstance.PreviousStopLoss = newStopLossPrice;  
+            }
         }
     }
- 
+
     private async Task<decimal> CalculateATR(BotInstance botInstance, int period)
     {
-        var klines = await botInstance.Client.GetKlinesAsync( botInstance.Symbol, "1d", period);
+        var klines = await botInstance.Client.GetKlinesAsync(botInstance.Symbol, "1h", period);  
         var trueRanges = new List<decimal>();
 
         for (int i = 1; i < klines.Count; i++)
@@ -158,7 +152,9 @@ public class TradingBotService : ITradingBotService
             var trueRange = Math.Max(highLow, Math.Max(highClose, lowClose));
             trueRanges.Add(trueRange);
         }
-
+        
         return trueRanges.Average();
-    }
+    } 
+
+
 }

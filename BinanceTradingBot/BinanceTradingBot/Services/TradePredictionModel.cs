@@ -1,136 +1,242 @@
 ﻿using BinanceTradingBot.Interfaces;
 using BinanceTradingBot.Models;
+using BinanceTradingBot.Services;
 using Microsoft.ML;
-using System;
-using System.Collections.Generic;
-using System.Linq;
 
-namespace BinanceTradingBot.Services
+public class TradePredictionModel : ITradePredictionModel
 {
-    public class TradePredictionModel : ITradePredictionModel
+    private readonly MLContext _mlContext;
+    private ITransformer _linearRegressionModel;
+    private ITransformer _decisionTreeModel;
+    private ITransformer _neuralNetworkModel;
+    private ITransformer _randomForestModel;
+    private ITransformer _gradientBoostingModel;
+
+    private readonly string[] _modelFiles = new string[]
     {
-        private readonly MLContext _mlContext;
-        private ITransformer _linearRegressionModel;
-        private ITransformer _decisionTreeModel;
-        private ITransformer _neuralNetworkModel;
+        "LinearRegressionModel.zip",
+        "DecisionTreeModel.zip",
+        "NeuralNetworkModel.zip",
+        "RandomForestModel.zip",
+        "GradientBoostingModel.zip"
+    };
 
-        public TradePredictionModel()
+    public TradePredictionModel()
+    {
+        _mlContext = new MLContext();
+    }
+    
+    public async Task InitializeOrTrainModelAsync(BinanceRestClient client, string symbol)
+    {
+        
+        if (ModelsExist())
         {
-            _mlContext = new MLContext();
-            LoadOrTrainModels();
+            LoadModels();
         }
-
-        private void LoadOrTrainModels()
-        {
-            if (System.IO.File.Exists("LinearRegressionModel.zip"))
+        else
+        {            
+            var trainingData = await LoadTrainingDataAsync(client, symbol);
+            if (trainingData != null)
             {
-                _linearRegressionModel = _mlContext.Model.Load("LinearRegressionModel.zip", out var _);
-                _decisionTreeModel = _mlContext.Model.Load("DecisionTreeModel.zip", out var _);
-                _neuralNetworkModel = _mlContext.Model.Load("NeuralNetworkModel.zip", out var _);
-                Console.WriteLine("Models loaded successfully.");
+                TrainAndSaveModels(trainingData);
             }
             else
             {
-                Console.WriteLine("No models found. Please train the models with training data.");
+                Console.WriteLine("No valid training data available.");
             }
         }
+    }
 
-        public void LoadOrTrainModel(MultiTimeframeData multiTimeframeData)
-        {
-            var dataView = LoadTrainingData(multiTimeframeData);
+    
+    private bool ModelsExist()
+    {
+        return _modelFiles.All(File.Exists);
+    }
 
-            if (dataView != null)
-            {
-                TrainAndSaveModels(dataView);
-            }
-            else
-            {
-                Console.WriteLine("No training data provided.");
-            }
-        }
+    
+    private void LoadModels()
+    {
+        _linearRegressionModel = _mlContext.Model.Load("LinearRegressionModel.zip", out var _);
+        _decisionTreeModel = _mlContext.Model.Load("DecisionTreeModel.zip", out var _);
+        _neuralNetworkModel = _mlContext.Model.Load("NeuralNetworkModel.zip", out var _);
+        _randomForestModel = _mlContext.Model.Load("RandomForestModel.zip", out var _);
+        _gradientBoostingModel = _mlContext.Model.Load("GradientBoostingModel.zip", out var _);
+        Console.WriteLine("Models loaded successfully.");
+    }
+    
+    private async Task<IDataView> LoadTrainingDataAsync(BinanceRestClient client, string symbol)
+    {
+        var multiTimeframeData = await LoadMultiTimeframeData(client, symbol);
+        return PrepareTrainingData(multiTimeframeData);
+    }
         
+    private IDataView PrepareTrainingData(MultiTimeframeData multiTimeframeData)
+    {
+        var allTradeData = new List<TradeData>();
+
+        foreach (var property in typeof(MultiTimeframeData).GetProperties())
+        {
+            if (property.PropertyType == typeof(List<TradeData>))
+            {
+                var tradeDataList = property.GetValue(multiTimeframeData) as List<TradeData>;
+                if (tradeDataList != null && tradeDataList.Any())
+                {
+                    allTradeData.AddRange(tradeDataList);
+                }
+            }
+        }
+
+        if (!allTradeData.Any())
+        {
+            Console.WriteLine("No training data available.");
+            return null;
+        }
+
+        return _mlContext.Data.LoadFromEnumerable(allTradeData);
+    }
+
+
+    private async Task<MultiTimeframeData> LoadMultiTimeframeData(BinanceRestClient client, string symbol)
+    {        
+        var indicatorsService = new TechnicalIndicatorsService();
         
-        private IDataView LoadTrainingData(MultiTimeframeData multiTimeframeData)
+        var klines1d = await client.GetKlinesAsync(symbol, "1d", 100);
+        var klines4h = await client.GetKlinesAsync(symbol, "4h", 100);
+        var klines5m = await client.GetKlinesAsync(symbol, "5m", 100);
+        var klines1m = await client.GetKlinesAsync(symbol, "1m", 100);
+
+        var dailyPrices = klines1d.Select(k => k.Close).ToList();
+        var fourHourPrices = klines4h.Select(k => k.Close).ToList();
+        var fiveMinutePrices = klines5m.Select(k => k.Close).ToList();
+        var oneMinutePrices = klines1m.Select(k => k.Close).ToList();
+
+
+        var multiTimeframeData = new MultiTimeframeData
         {
-            try
+            DailyData = klines1d.Select(k => new TradeData
             {
-                var allTradeData = new List<TradeData>();
-                
-                foreach (var property in typeof(MultiTimeframeData).GetProperties())
-                {
-                    if (property.PropertyType == typeof(List<TradeData>))
-                    {
-                        var res = property.GetValue(multiTimeframeData) as List<TradeData>;
+                Price = k.Close,
+                MovingAverage = indicatorsService.CalculateMovingAverage(dailyPrices, 14),
+                MacdSignal = indicatorsService.CalculateMacdSignal(dailyPrices),
+                Rsi = indicatorsService.CalculateRsi(dailyPrices),
+                Volume = k.Volume,
+                Trend = k.Close > k.Open ? "long" : "short",
+                Symbol = symbol
+            }).ToList(),
 
-                        if (res != null && res.Any())
-                        {
-                            allTradeData.AddRange(res); 
-                        }
-                    }
-                }
-
-                if (!allTradeData.Any())
-                {
-                    Console.WriteLine("No training data available.");
-                    return _mlContext.Data.LoadFromEnumerable(new List<TradeData>()); 
-                }
-
-                return _mlContext.Data.LoadFromEnumerable(allTradeData);
-            }
-            catch (Exception e)
+            FourHourData = klines4h.Select(k => new TradeData
             {
-                throw new Exception($"Failed to load training data: {e.Message}");
-            }
+                Price = k.Close,
+                MovingAverage = indicatorsService.CalculateMovingAverage(fourHourPrices, 14),
+                MacdSignal = indicatorsService.CalculateMacdSignal(fourHourPrices),
+                Rsi = indicatorsService.CalculateRsi(fourHourPrices),
+                Volume = k.Volume,
+                Trend = k.Close > k.Open ? "long" : "short",
+                Symbol = symbol
+            }).ToList(),
+
+            FiveMinuteData = klines5m.Select(k => new TradeData
+            {
+                Price = k.Close,
+                MovingAverage = indicatorsService.CalculateMovingAverage(fiveMinutePrices, 14),
+                MacdSignal = indicatorsService.CalculateMacdSignal(fiveMinutePrices),
+                Rsi = indicatorsService.CalculateRsi(fiveMinutePrices),
+                Volume = k.Volume,
+                Trend = k.Close > k.Open ? "long" : "short",
+                Symbol = symbol
+            }).ToList(),
+
+            OneMinuteData = klines1m.Select(k => new TradeData
+            {
+                Price = k.Close,
+                MovingAverage = indicatorsService.CalculateMovingAverage(oneMinutePrices, 14),
+                MacdSignal = indicatorsService.CalculateMacdSignal(oneMinutePrices),
+                Rsi = indicatorsService.CalculateRsi(oneMinutePrices),
+                Volume = k.Volume,
+                Trend = k.Close > k.Open ? "long" : "short",
+                Symbol = symbol
+            }).ToList()
+        };
+
+        return multiTimeframeData;
+    }
+
+
+    public async Task TrainModelWithNewDataAsync(BinanceRestClient client, string symbol)
+    {        
+        var newTrainingData = await LoadTrainingDataAsync(client, symbol);
+
+        if (newTrainingData != null)
+        {            
+            TrainAndSaveModels(newTrainingData);
+            Console.WriteLine("Models are successfully updated with new data.");
         }
-
-        private void TrainAndSaveModels(IDataView dataView)
+        else
         {
-            
-            var linearRegressionPipeline = _mlContext.Transforms.Concatenate("Features", nameof(TradeData.Price), nameof(TradeData.Macd), nameof(TradeData.Signal))
-                .Append(_mlContext.Regression.Trainers.Sdca());
-            _linearRegressionModel = linearRegressionPipeline.Fit(dataView);
-            _mlContext.Model.Save(_linearRegressionModel, dataView.Schema, "LinearRegressionModel.zip");
-
-            
-            var decisionTreePipeline = _mlContext.Transforms.Concatenate("Features", nameof(TradeData.Price), nameof(TradeData.Macd), nameof(TradeData.Signal))
-                .Append(_mlContext.Regression.Trainers.FastTree());
-            _decisionTreeModel = decisionTreePipeline.Fit(dataView);
-            _mlContext.Model.Save(_decisionTreeModel, dataView.Schema, "DecisionTreeModel.zip");
-
-            
-            var neuralNetworkPipeline = _mlContext.Transforms.Concatenate("Features", nameof(TradeData.Price), nameof(TradeData.Macd), nameof(TradeData.Signal))
-                .Append(_mlContext.MulticlassClassification.Trainers.LbfgsMaximumEntropy());
-            _neuralNetworkModel = neuralNetworkPipeline.Fit(dataView);
-            _mlContext.Model.Save(_neuralNetworkModel, dataView.Schema, "NeuralNetworkModel.zip");
-
-            Console.WriteLine("Models trained and saved.");
+            Console.WriteLine("Failed to load training data.");
         }
+    }
 
-        public string Predict(TradeData input)
+    private void TrainAndSaveModels(IDataView dataView)
+    {
+        
+        var linearRegressionPipeline = _mlContext.Transforms.Concatenate("Features", nameof(TradeData.Price), nameof(TradeData.MacdSignal), nameof(TradeData.MovingAverage), nameof(TradeData.Rsi), nameof(TradeData.Volume))
+            .Append(_mlContext.Regression.Trainers.Sdca());
+        _linearRegressionModel = linearRegressionPipeline.Fit(dataView);
+        _mlContext.Model.Save(_linearRegressionModel, dataView.Schema, "LinearRegressionModel.zip");
+
+        
+        var decisionTreePipeline = _mlContext.Transforms.Concatenate("Features", nameof(TradeData.Price), nameof(TradeData.MacdSignal), nameof(TradeData.MovingAverage), nameof(TradeData.Rsi), nameof(TradeData.Volume))
+            .Append(_mlContext.Regression.Trainers.FastTree());
+        _decisionTreeModel = decisionTreePipeline.Fit(dataView);
+        _mlContext.Model.Save(_decisionTreeModel, dataView.Schema, "DecisionTreeModel.zip");
+
+        
+        var neuralNetworkPipeline = _mlContext.Transforms.Concatenate("Features", nameof(TradeData.Price), nameof(TradeData.MacdSignal), nameof(TradeData.MovingAverage), nameof(TradeData.Rsi), nameof(TradeData.Volume))
+            .Append(_mlContext.MulticlassClassification.Trainers.LbfgsMaximumEntropy());
+        _neuralNetworkModel = neuralNetworkPipeline.Fit(dataView);
+        _mlContext.Model.Save(_neuralNetworkModel, dataView.Schema, "NeuralNetworkModel.zip");
+
+        
+        var randomForestPipeline = _mlContext.Transforms.Concatenate("Features", nameof(TradeData.Price), nameof(TradeData.MacdSignal), nameof(TradeData.MovingAverage), nameof(TradeData.Rsi), nameof(TradeData.Volume))
+            .Append(_mlContext.Regression.Trainers.FastForest());
+        _randomForestModel = randomForestPipeline.Fit(dataView);
+        _mlContext.Model.Save(_randomForestModel, dataView.Schema, "RandomForestModel.zip");
+
+        
+        var gradientBoostingPipeline = _mlContext.Transforms.Concatenate("Features", nameof(TradeData.Price), nameof(TradeData.MacdSignal), nameof(TradeData.MovingAverage), nameof(TradeData.Rsi), nameof(TradeData.Volume))
+            .Append(_mlContext.Regression.Trainers.LightGbm());
+        _gradientBoostingModel = gradientBoostingPipeline.Fit(dataView);
+        _mlContext.Model.Save(_gradientBoostingModel, dataView.Schema, "GradientBoostingModel.zip");
+
+        Console.WriteLine("All models trained and saved.");
+    }
+
+    
+    public string Predict(TradeData input)
+    {
+        var linearRegressionPrediction = _mlContext.Model.CreatePredictionEngine<TradeData, TradePrediction>(_linearRegressionModel).Predict(input);
+        var decisionTreePrediction = _mlContext.Model.CreatePredictionEngine<TradeData, TradePrediction>(_decisionTreeModel).Predict(input);
+        var neuralNetworkPrediction = _mlContext.Model.CreatePredictionEngine<TradeData, TradePrediction>(_neuralNetworkModel).Predict(input);
+        var randomForestPrediction = _mlContext.Model.CreatePredictionEngine<TradeData, TradePrediction>(_randomForestModel).Predict(input);
+        var gradientBoostingPrediction = _mlContext.Model.CreatePredictionEngine<TradeData, TradePrediction>(_gradientBoostingModel).Predict(input);
+
+        
+        var weights = new Dictionary<string, double>
         {
-            var predictionEngine = _mlContext.Model.CreatePredictionEngine<TradeData, TradePrediction>(_linearRegressionModel);
-            var linearRegressionPrediction = predictionEngine.Predict(input);
+            { linearRegressionPrediction.Trend, 1.0 },
+            { decisionTreePrediction.Trend, 1.5 },
+            { neuralNetworkPrediction.Trend, 2.0 },
+            { randomForestPrediction.Trend, 1.5 },
+            { gradientBoostingPrediction.Trend, 2.0 }
+        };
 
-            predictionEngine = _mlContext.Model.CreatePredictionEngine<TradeData, TradePrediction>(_decisionTreeModel);
-            var decisionTreePrediction = predictionEngine.Predict(input);
+        var trend = weights.GroupBy(x => x.Key)
+                            .Select(group => new { Trend = group.Key, Weight = group.Sum(w => w.Value) })
+                            .OrderByDescending(g => g.Weight)
+                            .First()
+                            .Trend;
 
-            predictionEngine = _mlContext.Model.CreatePredictionEngine<TradeData, TradePrediction>(_neuralNetworkModel);
-            var neuralNetworkPrediction = predictionEngine.Predict(input);
-
-            if (linearRegressionPrediction.Trend == decisionTreePrediction.Trend)
-            {
-                return linearRegressionPrediction.Trend;
-            }
-            else if (neuralNetworkPrediction.Trend == decisionTreePrediction.Trend)
-            {
-                return neuralNetworkPrediction.Trend;
-            }
-            else if (neuralNetworkPrediction.Trend == decisionTreePrediction.Trend)
-            {
-                return decisionTreePrediction.Trend;
-            }
-
-            return "neutral";
-        }
+        return trend;
     }
 }

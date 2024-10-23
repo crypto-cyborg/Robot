@@ -50,31 +50,31 @@ public class BinanceRestClient
         return response;
     }
 
-    public async Task ExecuteBuy(TradeData data)
+    public async Task ExecuteBuy(BotInstance botInstance)
     {
         try
         {            
             var leverageRequest = new RestRequest("/fapi/v1/leverage", Method.Post);
-            leverageRequest.AddParameter("symbol", data.Symbol);
-            leverageRequest.AddParameter("leverage", data.Leverage);
+            leverageRequest.AddParameter("symbol", botInstance.Symbol);
+            leverageRequest.AddParameter("leverage", botInstance.Leverage);
             var leverageResponse = await ExecuteAsync(leverageRequest, requireSignature: true);
 
             if (leverageResponse.IsSuccessful)
             {
-                Console.WriteLine($"Leverage {data.Leverage}x set successfully for {data.Symbol}");
+                Console.WriteLine($"Leverage {botInstance.Leverage}x set successfully for {botInstance.Symbol}");
 
                 var request = new RestRequest("/fapi/v1/order", Method.Post);
-                request.AddParameter("symbol", data.Symbol);
+                request.AddParameter("symbol", botInstance.Symbol);
                 request.AddParameter("side", "BUY");
                 request.AddParameter("type", "MARKET");
-                request.AddParameter("quantity", data.Quantity);
+                request.AddParameter("quantity", botInstance.TradeAmount);
                 request.AddParameter("timestamp", DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
 
                 var response = await ExecuteAsync(request, requireSignature: true);
 
                 if (response.IsSuccessful)
                 {
-                    Console.WriteLine($"BUY order executed successfully for {data.Quantity} of {data.Symbol}");
+                    Console.WriteLine($"BUY order executed successfully for {botInstance.TradeAmount} of {botInstance.Symbol}");
                 }
                 else
                 {
@@ -92,13 +92,13 @@ public class BinanceRestClient
         }
     }
 
-    public async Task ExecuteSell(TradeData data)
+    public async Task ExecuteSell(BotInstance botInstance)
     {
         var request = new RestRequest("/fapi/v1/order", Method.Post);
-        request.AddParameter("symbol", data.Symbol);
+        request.AddParameter("symbol", botInstance.Symbol);
         request.AddParameter("side", "SELL");
         request.AddParameter("type", "MARKET");
-        request.AddParameter("quantity", data.Quantity);
+        request.AddParameter("quantity", botInstance.TradeAmount);
         request.AddParameter("timestamp", DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
 
         try
@@ -106,7 +106,7 @@ public class BinanceRestClient
             var response = await ExecuteAsync(request, requireSignature: true);
             if (response.IsSuccessful)
             {
-                Console.WriteLine($"SELL order executed successfully for {data.Quantity} of {data.Symbol}");
+                Console.WriteLine($"SELL order executed successfully for {botInstance.TradeAmount} of {botInstance.Symbol}");
             }
             else
             {
@@ -134,7 +134,7 @@ public class BinanceRestClient
             }
 
             var positions = JsonConvert.DeserializeObject<List<Position>>(positionResponse.Content);
-            var position = positions.FirstOrDefault(p => p.Symbol == botInstance.Symbol && Math.Abs(p.PositionAmt) > 0);
+            var position = positions.FirstOrDefault(p => p.Symbol == botInstance.Symbol && p.PositionAmt != 0);
 
             if (position == null)
             {

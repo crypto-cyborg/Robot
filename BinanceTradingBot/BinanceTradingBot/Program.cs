@@ -5,7 +5,6 @@ using Microsoft.OpenApi.Models;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddSingleton<ITradingBotService, TradingBotService>();
-builder.Services.AddSingleton<ITradePredictionModel, TradePredictionModel>();
 
 builder.Services.AddControllers();
 builder.Services.AddSwaggerGen(c =>
