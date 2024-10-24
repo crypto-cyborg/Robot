@@ -3,6 +3,7 @@ using BinanceTradingBot.Models;
 using Newtonsoft.Json.Linq;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Reflection;
 using System.Threading.Tasks;
 
 namespace BinanceTradingBot.Services;
@@ -15,7 +16,8 @@ public class TradingBotService : ITradingBotService
 
     public TradingBotService()
     {
-        _tradePredictionModel = new TradePredictionModel();        
+        _tradePredictionModel = new TradePredictionModel();   
+        _bots = new ConcurrentDictionary<string, BotInstance>();
     }
 
     public async Task StartBotAsync(BotInstance botInstance)
@@ -38,28 +40,37 @@ public class TradingBotService : ITradingBotService
                         if (!hasOpenPosition)
                         {
                             await _tradePredictionModel.InitializeOrTrainModelAsync(botInstance.Client, botInstance.Symbol);
-                            
-                            
 
-                            foreach (var tradeData in historicalData.DailyData)
+                            var multiTimeframeData = _tradePredictionModel.LoadMultiTimeframeData();
+                            
+                            Type type = typeof(MultiTimeframeData);
+
+                            foreach (PropertyInfo property in type.GetProperties())
                             {
-                                var prediction = _tradePredictionModel.Predict(tradeData);
 
-                                if (prediction == "long")
+                                if (property.PropertyType == typeof(List<TradeData>))
                                 {
-                                    await botInstance.Client.ExecuteBuy(botInstance);
-                                    side = "BUY";  
-                                    Console.WriteLine($"Executed BUY order for {botInstance.Symbol}.");
-                                    break;
-                                }
-                                else if (prediction == "short")
-                                {
-                                    await botInstance.Client.ExecuteSell(botInstance);
-                                    side = "SELL";  
-                                    Console.WriteLine($"Executed SELL order for {botInstance.Symbol}.");
-                                    break;
+                                    var tradeDataList = (List<TradeData>)property.GetValue(multiTimeframeData);
+
+                                    var prediction = _tradePredictionModel.Predict(tradeDataList.FirstOrDefault());
+
+                                    if (prediction == "long")
+                                    {
+                                        await botInstance.Client.ExecuteBuy(botInstance);
+                                        side = "BUY";
+                                        Console.WriteLine($"Executed BUY order for {botInstance.Symbol}.");
+                                        break;
+                                    }
+                                    else if (prediction == "short")
+                                    {
+                                        await botInstance.Client.ExecuteSell(botInstance);
+                                        side = "SELL";
+                                        Console.WriteLine($"Executed SELL order for {botInstance.Symbol}.");
+                                        break;
+                                    }
                                 }
                             }
+
                         }
                         else
                         {                           

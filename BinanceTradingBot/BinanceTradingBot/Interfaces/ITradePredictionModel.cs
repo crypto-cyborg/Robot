@@ -6,6 +6,8 @@ namespace BinanceTradingBot.Interfaces;
 public interface ITradePredictionModel
 {
     Task InitializeOrTrainModelAsync(BinanceRestClient client, string symbol);
-    Task TrainModelWithNewDataAsync(BinanceRestClient client, string symbol);
+    Task TrainModelWithNewDataAsync();
     string Predict(TradeData input);
+    Task<MultiTimeframeData> LoadMultiTimeframeData();
+
 }

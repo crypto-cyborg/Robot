@@ -11,6 +11,8 @@ public class TradePredictionModel : ITradePredictionModel
     private ITransformer _neuralNetworkModel;
     private ITransformer _randomForestModel;
     private ITransformer _gradientBoostingModel;
+    private BinanceRestClient _client { get; set; }
+    string _symbol { get; set; }
 
     private readonly string[] _modelFiles = new string[]
     {
@@ -28,6 +30,8 @@ public class TradePredictionModel : ITradePredictionModel
     
     public async Task InitializeOrTrainModelAsync(BinanceRestClient client, string symbol)
     {
+        _client = client;
+        _symbol = symbol;
         
         if (ModelsExist())
         {
@@ -35,7 +39,7 @@ public class TradePredictionModel : ITradePredictionModel
         }
         else
         {            
-            var trainingData = await LoadTrainingDataAsync(client, symbol);
+            var trainingData = await LoadTrainingDataAsync();
             if (trainingData != null)
             {
                 TrainAndSaveModels(trainingData);
@@ -52,7 +56,6 @@ public class TradePredictionModel : ITradePredictionModel
     {
         return _modelFiles.All(File.Exists);
     }
-
     
     private void LoadModels()
     {
@@ -64,9 +67,9 @@ public class TradePredictionModel : ITradePredictionModel
         Console.WriteLine("Models loaded successfully.");
     }
     
-    private async Task<IDataView> LoadTrainingDataAsync(BinanceRestClient client, string symbol)
+    private async Task<IDataView> LoadTrainingDataAsync()
     {
-        var multiTimeframeData = await LoadMultiTimeframeData(client, symbol);
+        var multiTimeframeData = await LoadMultiTimeframeData();
         return PrepareTrainingData(multiTimeframeData);
     }
         
@@ -96,14 +99,14 @@ public class TradePredictionModel : ITradePredictionModel
     }
 
 
-    private async Task<MultiTimeframeData> LoadMultiTimeframeData(BinanceRestClient client, string symbol)
+    public async Task<MultiTimeframeData> LoadMultiTimeframeData()
     {        
         var indicatorsService = new TechnicalIndicatorsService();
         
-        var klines1d = await client.GetKlinesAsync(symbol, "1d", 100);
-        var klines4h = await client.GetKlinesAsync(symbol, "4h", 100);
-        var klines5m = await client.GetKlinesAsync(symbol, "5m", 100);
-        var klines1m = await client.GetKlinesAsync(symbol, "1m", 100);
+        var klines1d = await _client.GetKlinesAsync(_symbol, "1d", 100);
+        var klines4h = await _client.GetKlinesAsync(_symbol, "4h", 100);
+        var klines5m = await _client.GetKlinesAsync(_symbol, "5m", 100);
+        var klines1m = await _client.GetKlinesAsync(_symbol, "1m", 100);
 
         var dailyPrices = klines1d.Select(k => k.Close).ToList();
         var fourHourPrices = klines4h.Select(k => k.Close).ToList();
@@ -121,7 +124,7 @@ public class TradePredictionModel : ITradePredictionModel
                 Rsi = indicatorsService.CalculateRsi(dailyPrices),
                 Volume = k.Volume,
                 Trend = k.Close > k.Open ? "long" : "short",
-                Symbol = symbol
+                Symbol = _symbol
             }).ToList(),
 
             FourHourData = klines4h.Select(k => new TradeData
@@ -132,7 +135,7 @@ public class TradePredictionModel : ITradePredictionModel
                 Rsi = indicatorsService.CalculateRsi(fourHourPrices),
                 Volume = k.Volume,
                 Trend = k.Close > k.Open ? "long" : "short",
-                Symbol = symbol
+                Symbol = _symbol
             }).ToList(),
 
             FiveMinuteData = klines5m.Select(k => new TradeData
@@ -143,7 +146,7 @@ public class TradePredictionModel : ITradePredictionModel
                 Rsi = indicatorsService.CalculateRsi(fiveMinutePrices),
                 Volume = k.Volume,
                 Trend = k.Close > k.Open ? "long" : "short",
-                Symbol = symbol
+                Symbol = _symbol
             }).ToList(),
 
             OneMinuteData = klines1m.Select(k => new TradeData
@@ -154,7 +157,7 @@ public class TradePredictionModel : ITradePredictionModel
                 Rsi = indicatorsService.CalculateRsi(oneMinutePrices),
                 Volume = k.Volume,
                 Trend = k.Close > k.Open ? "long" : "short",
-                Symbol = symbol
+                Symbol = _symbol
             }).ToList()
         };
 
@@ -162,9 +165,9 @@ public class TradePredictionModel : ITradePredictionModel
     }
 
 
-    public async Task TrainModelWithNewDataAsync(BinanceRestClient client, string symbol)
+    public async Task TrainModelWithNewDataAsync()
     {        
-        var newTrainingData = await LoadTrainingDataAsync(client, symbol);
+        var newTrainingData = await LoadTrainingDataAsync();
 
         if (newTrainingData != null)
         {            
