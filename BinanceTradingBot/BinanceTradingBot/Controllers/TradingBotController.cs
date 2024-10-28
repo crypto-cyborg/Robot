@@ -12,7 +12,7 @@ public class TradingBotController : ControllerBase
 {
     private readonly ITradingBotService _tradingBotService;
     private string binanceReal = "https://api.binance.com/api";
-    private string binanceTestnet = "https://testnet.binance.vision/api";
+    private string binanceTestnet = "https://testnet.binancefuture.com";
 
     public TradingBotController(ITradingBotService tradingBotService)
     {
@@ -24,6 +24,8 @@ public class TradingBotController : ControllerBase
     {
         BotInstance botInstance = new BotInstance()
         {
+            ApiKey = request.ApiKey,
+            ApiSecret = request.ApiSecret,
             Symbol = request.Symbol,
             TradeAmount = request.TradeAmount,
             Leverage = request.Leverage,
@@ -39,6 +41,31 @@ public class TradingBotController : ControllerBase
     {
         _tradingBotService.StopBot(request.ApiKey);
         return Ok("Bot stopped successfully.");
+    }
+    
+     [HttpGet("balance")]
+    public async Task<IActionResult> GetBalance([FromQuery] string apiKey, [FromQuery] string apiSecret)
+    {
+        var client = new BinanceRestClient(binanceTestnet, apiKey, apiSecret);
+        var balance = await client.GetAccountBalanceAsync();
+        return Ok(balance);
+    }
+
+    
+    [HttpGet("positions")]
+    public async Task<IActionResult> GetOpenPositions([FromQuery] string apiKey, [FromQuery] string apiSecret)
+    {
+        var client = new BinanceRestClient(binanceTestnet, apiKey, apiSecret);
+        var openPositions = await client.GetOpenPositionsAsync();
+        return Ok(openPositions);
+    }
+    
+    [HttpGet("newbalance")]
+    public async Task<IActionResult> GetFuturesAccountBalance([FromQuery] string apiKey, [FromQuery] string apiSecret)
+    {
+        var client = new BinanceRestClient(binanceTestnet, apiKey, apiSecret);
+        var openPositions = await client.GetFuturesAccountBalanceAsync();
+        return Ok(openPositions);
     }
 }
 

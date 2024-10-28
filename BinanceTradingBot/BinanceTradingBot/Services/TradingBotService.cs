@@ -70,7 +70,6 @@ public class TradingBotService : ITradingBotService
                                     }
                                 }
                             }
-
                         }
                         else
                         {                           
@@ -99,8 +98,6 @@ public class TradingBotService : ITradingBotService
             return;
         }
     }
-
-
 
 
     public void StopBot(string apiKey)
@@ -147,6 +144,8 @@ public class TradingBotService : ITradingBotService
             }
         }
     }
+
+
 
     private async Task<decimal> CalculateATR(BotInstance botInstance, int period)
     {

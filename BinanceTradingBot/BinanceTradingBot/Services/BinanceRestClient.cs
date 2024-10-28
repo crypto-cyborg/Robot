@@ -31,14 +31,23 @@ public class BinanceRestClient
 
     private async Task<RestResponse> ExecuteAsync(RestRequest request, bool requireSignature = false)
     {
-        request.AddHeader("X-MBX-APIKEY", _apiKey);        
+        request.AddHeader("X-MBX-APIKEY", _apiKey); 
 
         if (requireSignature)
         {
-            var queryString = request.Resource + "?" + request.Parameters.ToQueryString();
+    
+            request.AddQueryParameter("recvWindow", 5000); 
+            request.AddQueryParameter("timestamp", DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()); 
+
+
+            var queryString = CreateQueryString(request);
+            Console.WriteLine($"Query String Before Signing: {queryString}"); 
+
+
             var signature = CreateSignature(queryString);
-            request.AddParameter("signature", signature, ParameterType.QueryString);
+            request.AddQueryParameter("signature", signature);
         }
+
 
         var response = await _client.ExecuteAsync(request);
 
@@ -48,6 +57,19 @@ public class BinanceRestClient
         }
 
         return response;
+    }
+
+    private string CreateQueryString(RestRequest request)
+    {
+        var queryString = new StringBuilder();
+        foreach (var param in request.Parameters)
+        {
+            if (param.Type == ParameterType.QueryString)
+            {
+                queryString.Append($"{param.Name}={param.Value}&");
+            }
+        }
+        return queryString.ToString().TrimEnd('&'); 
     }
 
     public async Task ExecuteBuy(BotInstance botInstance)
@@ -211,20 +233,40 @@ public class BinanceRestClient
 
         return openPosition != null;
     }
+
+    public async Task<AccountInfo> GetAccountBalanceAsync()
+    {
+        var request = new RestRequest("/fapi/v3/account", Method.Get);
+        request.AddParameter("timestamp", DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
+        var response = await ExecuteAsync(request, requireSignature: true);
+        return JsonConvert.DeserializeObject<AccountInfo>(response.Content);
+    }
+
+    public async Task<List<Position>> GetOpenPositionsAsync()
+    {
+        var request = new RestRequest("/fapi/v2/positionRisk", Method.Get);
+        var response = await ExecuteAsync(request, requireSignature: true);
+        return JsonConvert.DeserializeObject<List<Position>>(response.Content)
+            .Where(p => p.PositionAmt != 0).ToList();
+    }
+
+    public async Task<List<AccountBalance>> GetFuturesAccountBalanceAsync()
+    {
+        var request = new RestRequest("/fapi/v3/balance", Method.Get); 
+
+        var response = await ExecuteAsync(request, requireSignature: true);
+
+        if (response.IsSuccessful)
+        {
+            return JsonConvert.DeserializeObject<List<AccountBalance>>(response.Content);
+        }
+        else
+        {
+            Console.WriteLine($"Ошибка при получении баланса фьючерсного аккаунта: {response.Content}");
+            throw new Exception($"Не удалось получить баланс: {response.StatusCode}");
+        }
+    }
+
 }
 
-public static class RequestExtensions
-{
-    public static string ToQueryString(this RequestParameters parameters)
-    {
-        var queryString = new StringBuilder();
-        foreach (var param in parameters)
-        {
-            if (param.Type == ParameterType.QueryString)
-            {
-                queryString.Append($"{param.Name}={param.Value}&");
-            }
-        }
-        return queryString.ToString().TrimEnd('&');
-    }
-}
+
