@@ -234,20 +234,21 @@ public class BinanceRestClient
         return openPosition != null;
     }
 
-    public async Task<AccountInfo> GetAccountBalanceAsync()
-    {
-        var request = new RestRequest("/fapi/v3/account", Method.Get);
-        request.AddParameter("timestamp", DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
-        var response = await ExecuteAsync(request, requireSignature: true);
-        return JsonConvert.DeserializeObject<AccountInfo>(response.Content);
-    }
 
     public async Task<List<Position>> GetOpenPositionsAsync()
     {
         var request = new RestRequest("/fapi/v2/positionRisk", Method.Get);
         var response = await ExecuteAsync(request, requireSignature: true);
-        return JsonConvert.DeserializeObject<List<Position>>(response.Content)
-            .Where(p => p.PositionAmt != 0).ToList();
+        if (response.IsSuccessful)
+        {
+            return JsonConvert.DeserializeObject<List<Position>>(response.Content)
+                    .Where(p => p.PositionAmt != 0).ToList();
+        }
+        else
+        {
+            Console.WriteLine($"Error while getting futures account balance: {response.Content}");
+            throw new Exception($"Unable to get balance: {response.StatusCode}");
+        }
     }
 
     public async Task<List<AccountBalance>> GetFuturesAccountBalanceAsync()
@@ -262,8 +263,8 @@ public class BinanceRestClient
         }
         else
         {
-            Console.WriteLine($"Ошибка при получении баланса фьючерсного аккаунта: {response.Content}");
-            throw new Exception($"Не удалось получить баланс: {response.StatusCode}");
+            Console.WriteLine($"Error while getting futures account balance: {response.Content}");
+            throw new Exception($"Unable to get balance: {response.StatusCode}");
         }
     }
 

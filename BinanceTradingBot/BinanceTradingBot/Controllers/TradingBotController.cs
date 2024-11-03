@@ -41,15 +41,7 @@ public class TradingBotController : ControllerBase
     {
         _tradingBotService.StopBot(request.ApiKey);
         return Ok("Bot stopped successfully.");
-    }
-    
-     [HttpGet("balance")]
-    public async Task<IActionResult> GetBalance([FromQuery] string apiKey, [FromQuery] string apiSecret)
-    {
-        var client = new BinanceRestClient(binanceTestnet, apiKey, apiSecret);
-        var balance = await client.GetAccountBalanceAsync();
-        return Ok(balance);
-    }
+    }    
 
     
     [HttpGet("positions")]
@@ -60,7 +52,7 @@ public class TradingBotController : ControllerBase
         return Ok(openPositions);
     }
     
-    [HttpGet("newbalance")]
+    [HttpGet("balance")]
     public async Task<IActionResult> GetFuturesAccountBalance([FromQuery] string apiKey, [FromQuery] string apiSecret)
     {
         var client = new BinanceRestClient(binanceTestnet, apiKey, apiSecret);
