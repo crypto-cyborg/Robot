@@ -20,6 +20,7 @@ public class BinanceRestClient
         _client = new RestClient(baseUrl);
         _apiKey = apiKey;
         _apiSecret = apiSecret;
+        _responceConverter = new ResponceConverter();
     }
 
     private string CreateSignature(string queryString)
@@ -38,7 +39,7 @@ public class BinanceRestClient
         if (requireSignature)
         {
             
-            request.AddQueryParameter("recvWindow", 5000); 
+            request.AddQueryParameter("recvWindow", 10000); 
             request.AddQueryParameter("timestamp", DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()); 
 
 
@@ -207,15 +208,30 @@ public class BinanceRestClient
 
     public async Task<List<Kline>> GetKlinesAsync(string symbol, string interval, int limit)
     {
-        var request = new RestRequest("/fapi/v1/klines", Method.Get);
-        request.AddParameter("symbol", symbol);
-        request.AddParameter("interval", interval);
-        request.AddParameter("limit", limit);
+        try
+        {
+            var request = new RestRequest("/fapi/v1/klines", Method.Get);
+            request.AddParameter("symbol", symbol);
+            request.AddParameter("interval", interval);
+            request.AddParameter("limit", limit);
 
-        var response = await _client.ExecuteAsync(request);
-        var klines = JsonConvert.DeserializeObject<List<Kline>>(response.Content);
+            var response = await _client.ExecuteAsync(request);
 
-        return klines;
+            if (!response.IsSuccessful)
+            {                
+                throw new Exception($"Ошибка при получении данных: {response.ErrorMessage}");
+            }
+
+            var klineData = JsonConvert.DeserializeObject<object[][]>(response.Content);
+            var klines = _responceConverter.KlineConvert(klineData);
+
+            return klines;
+        }
+        catch (Exception ex)
+        {            
+            Console.WriteLine($"Произошла ошибка: {ex.Message}");
+            return new List<Kline>();
+        }
     }
 
     public async Task<bool> CheckOpenPositionAsync(string symbol)

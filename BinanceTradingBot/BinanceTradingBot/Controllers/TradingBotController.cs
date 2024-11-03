@@ -59,5 +59,13 @@ public class TradingBotController : ControllerBase
         var balances = await client.GetFuturesAccountBalanceAsync();
         return Ok(balances);
     }
+
+    [HttpGet("klines")]
+    public async Task<IActionResult> GetKlines([FromQuery] string apiKey, [FromQuery] string apiSecret, [FromQuery] string symbol, [FromQuery] string interval, [FromQuery] int limit)
+    {
+        var client = new BinanceRestClient(binanceTestnet, apiKey, apiSecret);
+        var klines = await client.GetKlinesAsync(symbol, interval, limit);
+        return Ok(klines);
+    }
 }
 
