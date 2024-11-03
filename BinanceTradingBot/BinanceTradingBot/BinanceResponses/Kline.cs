@@ -36,3 +36,5 @@ public class Kline
     [JsonProperty("takerBuyQuoteAssetVolume")]
     public decimal TakerBuyQuoteAssetVolume { get; set; }
 }
+
+

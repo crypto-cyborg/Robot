@@ -4,6 +4,7 @@ using Newtonsoft.Json;
 using RestSharp;
 using System.Security.Cryptography;
 using System.Text;
+using BinanceTradingBot.Interfaces;
 
 namespace BinanceTradingBot.Services;
 
@@ -12,6 +13,7 @@ public class BinanceRestClient
     private readonly RestClient _client;
     private readonly string _apiKey;
     private readonly string _apiSecret;
+    private readonly IResponceConverter _responceConverter;
 
     public BinanceRestClient(string baseUrl, string apiKey, string apiSecret)
     {
@@ -35,7 +37,7 @@ public class BinanceRestClient
 
         if (requireSignature)
         {
-    
+            
             request.AddQueryParameter("recvWindow", 5000); 
             request.AddQueryParameter("timestamp", DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()); 
 

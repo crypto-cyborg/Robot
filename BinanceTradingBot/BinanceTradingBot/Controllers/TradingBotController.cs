@@ -56,8 +56,8 @@ public class TradingBotController : ControllerBase
     public async Task<IActionResult> GetFuturesAccountBalance([FromQuery] string apiKey, [FromQuery] string apiSecret)
     {
         var client = new BinanceRestClient(binanceTestnet, apiKey, apiSecret);
-        var openPositions = await client.GetFuturesAccountBalanceAsync();
-        return Ok(openPositions);
+        var balances = await client.GetFuturesAccountBalanceAsync();
+        return Ok(balances);
     }
 }
 

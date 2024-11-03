@@ -1,10 +1,7 @@
 ﻿using BinanceTradingBot.Interfaces;
 using BinanceTradingBot.Models;
-using Newtonsoft.Json.Linq;
 using System.Collections.Concurrent;
-using System.Collections.Generic;
 using System.Reflection;
-using System.Threading.Tasks;
 
 namespace BinanceTradingBot.Services;
 
@@ -81,10 +78,6 @@ public class TradingBotService : ITradingBotService
                         }                        
                         await Task.Delay(TimeSpan.FromMinutes(1), botInstance.CancellationTokenSource.Token);
                     }
-                }
-                catch (OperationCanceledException)
-                {
-                    Console.WriteLine("Bot operation has been canceled.");
                 }
                 catch (Exception ex)
                 {
