@@ -6,6 +6,7 @@ public class TradeData
     public float MacdSignal { get; set; }       
     public float Rsi { get; set; }              
     public float Volume { get; set; }           
-    public string Trend { get; set; }           
+    public float Trend { get; set; }           
     public string Symbol { get; set; }          
+    public string Timeframe { get; set; }          
 }

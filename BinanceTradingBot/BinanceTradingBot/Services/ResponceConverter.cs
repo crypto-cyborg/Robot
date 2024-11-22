@@ -14,16 +14,16 @@ public class ResponceConverter : IResponceConverter
             var kline = new Kline
             {
                 OpenTime = Convert.ToInt64(item[0]),
-                Open = Convert.ToDecimal(item[1]),
-                High = Convert.ToDecimal(item[2]),
-                Low = Convert.ToDecimal(item[3]),
-                Close = Convert.ToDecimal(item[4]),
-                Volume = Convert.ToDecimal(item[5]),
+                Open = Convert.ToSingle(item[1]),  
+                High = Convert.ToSingle(item[2]),  
+                Low = Convert.ToSingle(item[3]),   
+                Close = Convert.ToSingle(item[4]), 
+                Volume = Convert.ToSingle(item[5]),
                 CloseTime = Convert.ToInt64(item[6]),
-                QuoteAssetVolume = Convert.ToDecimal(item[7]),
+                QuoteAssetVolume = Convert.ToSingle(item[7]), 
                 NumberOfTrades = Convert.ToInt32(item[8]),
-                TakerBuyBaseAssetVolume = Convert.ToDecimal(item[9]),
-                TakerBuyQuoteAssetVolume = Convert.ToDecimal(item[10])
+                TakerBuyBaseAssetVolume = Convert.ToSingle(item[9]), 
+                TakerBuyQuoteAssetVolume = Convert.ToSingle(item[10])
             };
             klines.Add(kline);
         }

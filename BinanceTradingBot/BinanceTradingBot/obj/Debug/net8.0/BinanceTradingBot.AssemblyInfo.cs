@@ -14,7 +14,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("BinanceTradingBot")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+a78ff04b7db318929f6c05d9eba5315645110d65")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+1ea9ca52d2876804b0367a2410b9a8822c0cdeaa")]
 [assembly: System.Reflection.AssemblyProductAttribute("BinanceTradingBot")]
 [assembly: System.Reflection.AssemblyTitleAttribute("BinanceTradingBot")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

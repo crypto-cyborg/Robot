@@ -144,7 +144,7 @@ public class BinanceRestClient
         }
     }
 
-    public async Task SetStopLossAsync(BotInstance botInstance, decimal stopLossPrice)
+    public async Task SetStopLossAsync(BotInstance botInstance, float stopLossPrice)
     {
         try
         {            
@@ -193,7 +193,7 @@ public class BinanceRestClient
     }
 
 
-    public async Task<decimal> GetCurrentPriceAsync(string symbol)
+    public async Task<float> GetCurrentPriceAsync(string symbol)
     {
         var request = new RestRequest("/fapi/v2/ticker/price", Method.Get);
         request.AddParameter("symbol", symbol);

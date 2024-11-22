@@ -11,55 +11,55 @@ public class Position
     public string PositionSide { get; set; }      
 
     [JsonProperty("positionAmt")]
-    public decimal PositionAmt { get; set; }      
+    public float PositionAmt { get; set; }      
 
     [JsonProperty("entryPrice")]
-    public decimal EntryPrice { get; set; }       
+    public float EntryPrice { get; set; }       
 
     [JsonProperty("breakEvenPrice")]
-    public decimal BreakEvenPrice { get; set; }   
+    public float BreakEvenPrice { get; set; }   
 
     [JsonProperty("markPrice")]
-    public decimal MarkPrice { get; set; }        
+    public float MarkPrice { get; set; }        
 
     [JsonProperty("unRealizedProfit")]
-    public decimal UnRealizedProfit { get; set; } 
+    public float UnRealizedProfit { get; set; } 
 
     [JsonProperty("liquidationPrice")]
-    public decimal LiquidationPrice { get; set; } 
+    public float LiquidationPrice { get; set; } 
 
     [JsonProperty("isolatedMargin")]
-    public decimal IsolatedMargin { get; set; }   
+    public float IsolatedMargin { get; set; }   
 
     [JsonProperty("notional")]
-    public decimal Notional { get; set; }         
+    public float Notional { get; set; }         
 
     [JsonProperty("marginAsset")]
     public string MarginAsset { get; set; }       
 
     [JsonProperty("isolatedWallet")]
-    public decimal IsolatedWallet { get; set; }   
+    public float IsolatedWallet { get; set; }   
 
     [JsonProperty("initialMargin")]
-    public decimal InitialMargin { get; set; }    
+    public float InitialMargin { get; set; }    
 
     [JsonProperty("maintMargin")]
-    public decimal MaintMargin { get; set; }      
+    public float MaintMargin { get; set; }      
 
     [JsonProperty("positionInitialMargin")]
-    public decimal PositionInitialMargin { get; set; } 
+    public float PositionInitialMargin { get; set; } 
 
     [JsonProperty("openOrderInitialMargin")]
-    public decimal OpenOrderInitialMargin { get; set; } 
+    public float OpenOrderInitialMargin { get; set; } 
 
     [JsonProperty("adl")]
     public int Adl { get; set; }                  
 
     [JsonProperty("bidNotional")]
-    public decimal BidNotional { get; set; }      
+    public float BidNotional { get; set; }      
 
     [JsonProperty("askNotional")]
-    public decimal AskNotional { get; set; }      
+    public float AskNotional { get; set; }      
 
     [JsonProperty("updateTime")]
     public long UpdateTime { get; set; }          

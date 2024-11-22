@@ -11,19 +11,19 @@ public class AccountBalance
     public string Asset { get; set; }
 
     [JsonProperty("balance")]
-    public decimal Balance { get; set; }
+    public float Balance { get; set; }
 
     [JsonProperty("withdrawAvailable")]
-    public decimal WithdrawAvailable { get; set; }
+    public float WithdrawAvailable { get; set; }
 
     [JsonProperty("crossWalletBalance")]
-    public decimal CrossWalletBalance { get; set; }
+    public float CrossWalletBalance { get; set; }
 
     [JsonProperty("crossUnPnl")]
-    public decimal CrossUnPnl { get; set; }
+    public float CrossUnPnl { get; set; }
 
     [JsonProperty("availableBalance")]
-    public decimal AvailableBalance { get; set; }
+    public float AvailableBalance { get; set; }
 
     [JsonProperty("updateTime")]
     public long UpdateTime { get; set; }

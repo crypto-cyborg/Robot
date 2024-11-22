@@ -11,8 +11,8 @@ public class BotInstance
     public string ApiKey { get; set; }
     public string ApiSecret { get; set; }
     public string Symbol { get; set; }
-    public decimal TradeAmount { get; set; }
+    public float TradeAmount { get; set; }
     public int Leverage { get; set; } 
-    public decimal? PreviousStopLoss { get; set; } 
-    public decimal? PurchasePrice { get; set; }  
+    public float? PreviousStopLoss { get; set; } 
+    public float? PurchasePrice { get; set; }  
 }

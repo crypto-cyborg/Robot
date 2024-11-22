@@ -8,7 +8,7 @@ public class PriceData
     public string Symbol { get; set; }
 
     [JsonProperty("price")]
-    public decimal Price { get; set; }
+    public float Price { get; set; }
 
     [JsonProperty("time")]
     public long Time { get; set; }

@@ -2,5 +2,5 @@
 
 public class TradePrediction
 {
-    public string Trend { get; set; }
+    public float Trend { get; set; }
 }

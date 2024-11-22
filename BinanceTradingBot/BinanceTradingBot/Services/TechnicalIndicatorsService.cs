@@ -7,13 +7,13 @@ namespace BinanceTradingBot.Services
 {
     public class TechnicalIndicatorsService
     {
-        public decimal CalculateRsi(List<decimal> prices, int period = 14)
+        public float CalculateRsi(List<float> prices, int period = 14)
         {
             if (prices == null || prices.Count < period)
                 throw new ArgumentException("Недостаточно данных для расчета RSI");
 
-            decimal gainSum = 0;
-            decimal lossSum = 0;
+            float gainSum = 0;
+            float lossSum = 0;
 
            
             for (int i = 1; i <= period; i++)
@@ -25,8 +25,8 @@ namespace BinanceTradingBot.Services
                     lossSum -= change;
             }
 
-            decimal avgGain = gainSum / period;
-            decimal avgLoss = lossSum / period;
+            float avgGain = gainSum / period;
+            float avgLoss = lossSum / period;
 
             
             for (int i = period; i < prices.Count; i++)
@@ -45,12 +45,12 @@ namespace BinanceTradingBot.Services
                 }
             }
 
-            decimal rs = avgLoss == 0 ? 100 : avgGain / avgLoss;
-            decimal rsi = 100 - (100 / (1 + rs));
+            var rs = avgLoss == 0 ? 100 : avgGain / avgLoss;
+            var rsi = 100 - (100 / (1 + rs));
             return rsi;
         }
 
-        public decimal CalculateMacdSignal(List<decimal> prices, int shortPeriod = 12, int longPeriod = 26, int signalPeriod = 9)
+        public float CalculateMacdSignal(List<float> prices, int shortPeriod = 12, int longPeriod = 26, int signalPeriod = 9)
         {
             if (prices == null || prices.Count < longPeriod)
                 throw new ArgumentException("Недостаточно данных для расчета MACD");
@@ -65,7 +65,7 @@ namespace BinanceTradingBot.Services
             return signalLine;
         }
 
-        public decimal CalculateMovingAverage(List<decimal> prices, int period)
+        public float CalculateMovingAverage(List<float> prices, int period)
         {
             if (prices == null || prices.Count < period)
                 throw new ArgumentException("Недостаточно данных для расчета скользящего среднего");
@@ -73,13 +73,13 @@ namespace BinanceTradingBot.Services
             return prices.TakeLast(period).Average();
         }
 
-        public decimal CalculateExponentialMovingAverage(List<decimal> prices, int period)
+        public float CalculateExponentialMovingAverage(List<float> prices, int period)
         {
             if (prices == null || prices.Count < period)
                 throw new ArgumentException("Недостаточно данных для расчета EMA");
 
-            decimal smoothingFactor = 2m / (period + 1);
-            decimal ema = prices.Take(period).Average();
+            var smoothingFactor = 2f / (period + 1);
+            var ema = prices.Take(period).Average();
 
             foreach (var price in prices.Skip(period))
             {
