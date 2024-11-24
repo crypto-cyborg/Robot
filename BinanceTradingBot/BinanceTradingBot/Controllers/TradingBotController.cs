@@ -11,7 +11,7 @@ namespace BinanceTradingBot.Controllers;
 public class TradingBotController : ControllerBase
 {
     private readonly ITradingBotService _tradingBotService;
-    private string binanceReal = "https://api.binance.com/api";
+    private string binanceReal = "https://fapi.binance.com/api";
     private string binanceTestnet = "https://testnet.binancefuture.com";
 
     public TradingBotController(ITradingBotService tradingBotService)
@@ -42,6 +42,25 @@ public class TradingBotController : ControllerBase
         _tradingBotService.StopBot(request.ApiKey);
         return Ok("Bot stopped successfully.");
     }    
+    
+    [HttpPost("buy")]
+    public async Task<IActionResult> Buy([FromBody] StartBotRequest request)
+    {
+        BotInstance botInstance = new BotInstance()
+        {
+            ApiKey = request.ApiKey,
+            ApiSecret = request.ApiSecret,
+            Symbol = request.Symbol,
+            TradeAmount = request.TradeAmount,
+            Leverage = request.Leverage,
+            Client = new BinanceRestClient(binanceTestnet, request.ApiKey, request.ApiSecret),            
+        };
+
+        var client = new BinanceRestClient(binanceTestnet, botInstance.ApiKey, botInstance.ApiSecret);
+        var Response = await client.ExecuteBuy(botInstance);
+        
+        return Ok($"contr - {Response}");
+    }  
 
     
     [HttpGet("positions")]

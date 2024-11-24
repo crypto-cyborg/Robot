@@ -29,41 +29,41 @@ public class TradingBotService : ITradingBotService
                     string side = null;
                     await botInstance.PredictionModel.InitializeOrTrainModelAsync(botInstance.Client, botInstance.Symbol);
 
-                    while (!botInstance.CancellationTokenSource.Token.IsCancellationRequested)
-                    {
-                        var hasOpenPosition = await botInstance.Client.CheckOpenPositionAsync(botInstance.Symbol);
-
-                        if (!hasOpenPosition)
-                        {
-                            await botInstance.PredictionModel.InitializeOrTrainModelAsync(botInstance.Client, botInstance.Symbol);
-
-                            var multiTimeframeData = botInstance.PredictionModel.LoadMultiTimeframeData();
-
-                            var prediction = botInstance.PredictionModel.Predict(tradeDataList.FirstOrDefault());
-
-                            if (prediction == "long")
-                            {
-                                await botInstance.Client.ExecuteBuy(botInstance);
-                                side = "BUY";
-                                Console.WriteLine($"Executed BUY order for {botInstance.Symbol}.");
-                            }
-                            else if (prediction == "short")
-                            {
-                                await botInstance.Client.ExecuteSell(botInstance);
-                                side = "SELL";
-                                Console.WriteLine($"Executed SELL order for {botInstance.Symbol}.");
-                            }
-                        }
-                        else
-                        {
-                            if (side != null)
-                            {
-                                Console.WriteLine($"Position is already open for {botInstance.Symbol}, updating trailing stop.");
-                                await UpdateTrailingStopAsync(botInstance, side);
-                            }
-                        }
-                        await Task.Delay(TimeSpan.FromMinutes(1), botInstance.CancellationTokenSource.Token);
-                    }
+                    // while (!botInstance.CancellationTokenSource.Token.IsCancellationRequested)
+                    // {
+                    //     var hasOpenPosition = await botInstance.Client.CheckOpenPositionAsync(botInstance.Symbol);
+                    //
+                    //     if (!hasOpenPosition)
+                    //     {
+                    //         await botInstance.PredictionModel.InitializeOrTrainModelAsync(botInstance.Client, botInstance.Symbol);
+                    //
+                    //         var multiTimeframeData = botInstance.PredictionModel.LoadMultiTimeframeData();
+                    //
+                    //         var prediction = botInstance.PredictionModel.Predict(tradeDataList.FirstOrDefault());
+                    //
+                    //         if (prediction == "long")
+                    //         {
+                    //             await botInstance.Client.ExecuteBuy(botInstance);
+                    //             side = "BUY";
+                    //             Console.WriteLine($"Executed BUY order for {botInstance.Symbol}.");
+                    //         }
+                    //         else if (prediction == "short")
+                    //         {
+                    //             await botInstance.Client.ExecuteSell(botInstance);
+                    //             side = "SELL";
+                    //             Console.WriteLine($"Executed SELL order for {botInstance.Symbol}.");
+                    //         }
+                    //     }
+                    //     else
+                    //     {
+                    //         if (side != null)
+                    //         {
+                    //             Console.WriteLine($"Position is already open for {botInstance.Symbol}, updating trailing stop.");
+                    //             await UpdateTrailingStopAsync(botInstance, side);
+                    //         }
+                    //     }
+                    //     await Task.Delay(TimeSpan.FromMinutes(1), botInstance.CancellationTokenSource.Token);
+                    // }
                 }
                 catch (Exception ex)
                 {
