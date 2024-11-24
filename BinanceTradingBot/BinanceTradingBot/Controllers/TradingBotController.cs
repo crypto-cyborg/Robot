@@ -2,6 +2,7 @@
 using BinanceTradingBot.Interfaces;
 using BinanceTradingBot.Models;
 using BinanceTradingBot.Services;
+using BinanceTradingBot.Enums;
 
 
 namespace BinanceTradingBot.Controllers;
@@ -57,9 +58,9 @@ public class TradingBotController : ControllerBase
         };
 
         var client = new BinanceRestClient(binanceTestnet, botInstance.ApiKey, botInstance.ApiSecret);
-        var Response = await client.ExecuteBuy(botInstance);
+        var Response = await client.PlaceOrderAsync(botInstance, Side.BUY);
         
-        return Ok($"contr - {Response}");
+        return Ok(Response);
     }  
 
     
@@ -75,7 +76,7 @@ public class TradingBotController : ControllerBase
     public async Task<IActionResult> GetFuturesAccountBalance([FromQuery] string apiKey, [FromQuery] string apiSecret)
     {
         var client = new BinanceRestClient(binanceTestnet, apiKey, apiSecret);
-        var balances = await client.GetFuturesAccountBalanceAsync();
+        var balances = await client.GetBalanceAsync();
         return Ok(balances);
     }
 

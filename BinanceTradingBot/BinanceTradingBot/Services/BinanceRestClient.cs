@@ -1,10 +1,11 @@
-﻿using BinanceTradingBot.BinanceResponses;
-using BinanceTradingBot.Models;
+﻿using BinanceTradingBot.Models;
 using Newtonsoft.Json;
 using RestSharp;
 using System.Security.Cryptography;
 using System.Text;
 using BinanceTradingBot.Interfaces;
+using BinanceTradingBot.Enums;
+using BinanceTradingBot.BinanceResponses;
 
 namespace BinanceTradingBot.Services;
 
@@ -38,7 +39,7 @@ public class BinanceRestClient
 
         if (requireSignature)
         {
-            request.AddQueryParameter("recvWindow", 25000); 
+            request.AddQueryParameter("recvWindow", 55000); 
             request.AddQueryParameter("timestamp", DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()); 
 
             var queryString = CreateQueryString(request);
@@ -72,7 +73,7 @@ public class BinanceRestClient
         return queryString.ToString().TrimEnd('&'); 
     }
 
-    public async Task<string> ExecuteBuy(BotInstance botInstance)
+    public async Task<string> PlaceOrderAsync(BotInstance botInstance, Side side)
     {
         try
         {            
@@ -83,27 +84,38 @@ public class BinanceRestClient
             var leverageResponse = await ExecuteAsync(leverageRequest, requireSignature: true);
 
             if (leverageResponse.IsSuccessful)
-            {
+            {                
                 Console.WriteLine($"Leverage {botInstance.Leverage}x set successfully for {botInstance.Symbol}");
 
+                var price = await GetCurrentPriceAsync(botInstance.Symbol);
+
+                if (price == null)
+                {
+                    Console.WriteLine("Unable to get current price.");
+                    return "Error getting price.";
+                }
+
+                var quantity = botInstance.TradeAmount / price;
+                quantity *= botInstance.Leverage;
+                quantity = (float)Math.Round(quantity, 3);
+
                 var request = new RestRequest("/fapi/v1/order", Method.Post);
-                request.AddQueryParameter("symbol", botInstance.Symbol);
-                request.AddQueryParameter("side", "BUY");
-                request.AddQueryParameter("type", "MARKET");
-                request.AddQueryParameter("quantity", (decimal)botInstance.TradeAmount);
-                
+                    request.AddQueryParameter("symbol", botInstance.Symbol);
+                    request.AddQueryParameter("side", side);
+                    request.AddQueryParameter("type", OrderType.MARKET);
+                    request.AddQueryParameter("quantity", (decimal)quantity);
 
-                var response = await ExecuteAsync(request, requireSignature: true);
+                    var response = await ExecuteAsync(request, requireSignature: true);
 
-                if (response.IsSuccessful)
-                {
-                    Console.WriteLine($"BUY order executed successfully for {botInstance.TradeAmount} of {botInstance.Symbol}");
-                    return response.Content;
-                }
-                else
-                {
-                    Console.WriteLine($"Failed to execute BUY order: {response.Content}");
-                }
+                    if (response.IsSuccessful)
+                    {
+                        Console.WriteLine($"{side} order executed successfully for {botInstance.TradeAmount} of {botInstance.Symbol}");
+                        return response.Content;
+                    }
+                    else
+                    {
+                        Console.WriteLine($"Failed to execute {side} order: {response.Content}");
+                    }                
             }
             else
             {
@@ -112,38 +124,12 @@ public class BinanceRestClient
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error executing BUY order: {ex.Message}");
+            Console.WriteLine($"Error executing {side} order: {ex.Message}");
         }
-
-        return "Failed to execute BUY order";
+        return $"Failed to execute {side} order";
     }
 
-    public async Task ExecuteSell(BotInstance botInstance)
-    {
-        var request = new RestRequest("/fapi/v1/order", Method.Post);
-        request.AddQueryParameter("symbol", botInstance.Symbol);
-        request.AddQueryParameter("side", "SELL");
-        request.AddQueryParameter("type", "MARKET");
-        request.AddQueryParameter("quantity", botInstance.TradeAmount);
-        request.AddQueryParameter("timestamp", DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
-
-        try
-        {
-            var response = await ExecuteAsync(request, requireSignature: true);
-            if (response.IsSuccessful)
-            {
-                Console.WriteLine($"SELL order executed successfully for {botInstance.TradeAmount} of {botInstance.Symbol}");
-            }
-            else
-            {
-                Console.WriteLine($"Failed to execute SELL order: {response.Content}");
-            }
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Error executing SELL order: {ex.Message}");
-        }
-    }
+   
 
     public async Task SetStopLossAsync(BotInstance botInstance, float stopLossPrice)
     {
@@ -173,7 +159,7 @@ public class BinanceRestClient
             var stopLossRequest = new RestRequest("/fapi/v1/order", Method.Post);
             stopLossRequest.AddQueryParameter("symbol", botInstance.Symbol);
             stopLossRequest.AddQueryParameter("side", side);  
-            stopLossRequest.AddQueryParameter("type", "STOP_MARKET"); 
+            stopLossRequest.AddQueryParameter("type", OrderType.MARKET); 
             stopLossRequest.AddQueryParameter("stopPrice", stopLossPrice);  
             stopLossRequest.AddQueryParameter("quantity", Math.Abs(position.PositionAmt));  
             var stopLossResponse = await ExecuteAsync(stopLossRequest, requireSignature: true);
@@ -205,8 +191,6 @@ public class BinanceRestClient
         return priceData.Price;
     }
 
-
-
     public async Task<List<Kline>> GetKlinesAsync(string symbol, string interval, int limit)
     {
         try
@@ -235,25 +219,6 @@ public class BinanceRestClient
         }
     }
 
-    public async Task<bool> CheckOpenPositionAsync(string symbol)
-    {
-        var request = new RestRequest("/fapi/v3/positionRisk", Method.Get);
-        request.AddQueryParameter("timestamp", DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
-        if (!string.IsNullOrEmpty(symbol))
-        {
-            request.AddQueryParameter("symbol", symbol);
-        }
-
-        var response = await ExecuteAsync(request, requireSignature: true);
-
-        var positionData = Newtonsoft.Json.JsonConvert.DeserializeObject<List<Position>>(response.Content);
-        
-        var openPosition = positionData?.FirstOrDefault(p => p.PositionAmt != 0);
-
-        return openPosition != null;
-    }
-
-
     public async Task<List<Position>> GetOpenPositionsAsync()
     {
         var request = new RestRequest("/fapi/v2/positionRisk", Method.Get);
@@ -270,7 +235,7 @@ public class BinanceRestClient
         }
     }
 
-    public async Task<List<AccountBalance>> GetFuturesAccountBalanceAsync()
+    public async Task<List<AccountBalance>> GetBalanceAsync()
     {
         var request = new RestRequest("/fapi/v3/balance", Method.Get); 
 

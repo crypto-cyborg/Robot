@@ -1,4 +1,5 @@
-﻿using BinanceTradingBot.Interfaces;
+﻿using BinanceTradingBot.Enums;
+using BinanceTradingBot.Interfaces;
 using BinanceTradingBot.Models;
 using System.Collections.Concurrent;
 using System.Reflection;
@@ -22,54 +23,55 @@ public class TradingBotService : ITradingBotService
         {
             botInstance.CancellationTokenSource = new CancellationTokenSource();
 
-            await Task.Run(async () =>
-            {
-                try
-                {
-                    string side = null;
-                    await botInstance.PredictionModel.InitializeOrTrainModelAsync(botInstance.Client, botInstance.Symbol);
+            //await Task.Run(async () =>
+            //{
+            //    try
+            //    {
+                    
+            //        await botInstance.PredictionModel.InitializeOrTrainModelAsync(botInstance.Client, botInstance.Symbol);
 
-                    // while (!botInstance.CancellationTokenSource.Token.IsCancellationRequested)
-                    // {
-                    //     var hasOpenPosition = await botInstance.Client.CheckOpenPositionAsync(botInstance.Symbol);
-                    //
-                    //     if (!hasOpenPosition)
-                    //     {
-                    //         await botInstance.PredictionModel.InitializeOrTrainModelAsync(botInstance.Client, botInstance.Symbol);
-                    //
-                    //         var multiTimeframeData = botInstance.PredictionModel.LoadMultiTimeframeData();
-                    //
-                    //         var prediction = botInstance.PredictionModel.Predict(tradeDataList.FirstOrDefault());
-                    //
-                    //         if (prediction == "long")
-                    //         {
-                    //             await botInstance.Client.ExecuteBuy(botInstance);
-                    //             side = "BUY";
-                    //             Console.WriteLine($"Executed BUY order for {botInstance.Symbol}.");
-                    //         }
-                    //         else if (prediction == "short")
-                    //         {
-                    //             await botInstance.Client.ExecuteSell(botInstance);
-                    //             side = "SELL";
-                    //             Console.WriteLine($"Executed SELL order for {botInstance.Symbol}.");
-                    //         }
-                    //     }
-                    //     else
-                    //     {
-                    //         if (side != null)
-                    //         {
-                    //             Console.WriteLine($"Position is already open for {botInstance.Symbol}, updating trailing stop.");
-                    //             await UpdateTrailingStopAsync(botInstance, side);
-                    //         }
-                    //     }
-                    //     await Task.Delay(TimeSpan.FromMinutes(1), botInstance.CancellationTokenSource.Token);
-                    // }
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"Error running bot: {ex.Message}");
-                }
-            }, botInstance.CancellationTokenSource.Token);
+            //        while (!botInstance.CancellationTokenSource.Token.IsCancellationRequested)
+            //        {
+            //            Side side;
+            //            var hasOpenPosition = await botInstance.Client.CheckOpenPositionAsync(botInstance.Symbol);
+
+            //            if (!hasOpenPosition)
+            //            {
+            //                await botInstance.PredictionModel.InitializeOrTrainModelAsync(botInstance.Client, botInstance.Symbol);
+
+            //                var multiTimeframeData = botInstance.PredictionModel.LoadMultiTimeframeData();
+
+            //                var prediction = botInstance.PredictionModel.Predict(tradeDataList.FirstOrDefault());
+
+            //                if (prediction == "long")
+            //                {
+            //                    await botInstance.Client.PlaceOrderAsync(botInstance, Side.BUY);
+            //                    side = Side.BUY;
+            //                    Console.WriteLine($"Executed BUY order for {botInstance.Symbol}.");
+            //                }
+            //                else if (prediction == "short")
+            //                {
+            //                    await botInstance.Client.PlaceOrderAsync(botInstance, Side.SELL);
+            //                    side = Side.SELL;
+            //                    Console.WriteLine($"Executed SELL order for {botInstance.Symbol}.");
+            //                }
+            //            }
+            //            else
+            //            {
+            //                if (hasOpenPosition)
+            //                {
+            //                    Console.WriteLine($"Position is already open for {botInstance.Symbol}, updating trailing stop.");
+            //                    await UpdateTrailingStopAsync(botInstance, side);
+            //                }
+            //            }
+            //            await Task.Delay(TimeSpan.FromMinutes(1), botInstance.CancellationTokenSource.Token);
+            //        }
+            //    }
+            //    catch (Exception ex)
+            //    {
+            //        Console.WriteLine($"Error running bot: {ex.Message}");
+            //    }
+            //}, botInstance.CancellationTokenSource.Token);
         }
         else
         {
@@ -95,14 +97,14 @@ public class TradingBotService : ITradingBotService
 
 
 
-    private async Task UpdateTrailingStopAsync(BotInstance botInstance, string side)
+    private async Task UpdateTrailingStopAsync(BotInstance botInstance, Side side)
     {
         var currentPrice = await botInstance.Client.GetCurrentPriceAsync(botInstance.Symbol);
         var atr = await CalculateATR(botInstance, 30);
 
         var adjustedAtr = atr / botInstance.Leverage;
 
-        if (side == "long")
+        if (side == Side.BUY)
         {
             var newStopLossPrice = currentPrice - adjustedAtr;
 
@@ -112,7 +114,7 @@ public class TradingBotService : ITradingBotService
                 botInstance.PreviousStopLoss = newStopLossPrice;
             }
         }
-        else if (side == "short")
+        else if (side == Side.SELL)
         {
             var newStopLossPrice = currentPrice + adjustedAtr;
 
