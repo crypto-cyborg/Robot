@@ -129,12 +129,93 @@ public class BinanceRestClient
         return $"Failed to execute {side} order";
     }
 
-   
 
-    public async Task SetStopLossAsync(BotInstance botInstance, float stopLossPrice)
+
+    //public async Task SetStopLossAsync(BotInstance botInstance, float stopLossPrice)
+    //{
+    //    try
+    //    {            
+    //        var positionRequest = new RestRequest("/fapi/v2/positionRisk", Method.Get);
+    //        positionRequest.AddQueryParameter("symbol", botInstance.Symbol);
+    //        var positionResponse = await ExecuteAsync(positionRequest, requireSignature: true);
+
+    //        if (!positionResponse.IsSuccessful)
+    //        {
+    //            Console.WriteLine($"Failed to fetch position: {positionResponse.Content}");
+    //            return;
+    //        }
+
+    //        var positions = JsonConvert.DeserializeObject<List<Position>>(positionResponse.Content);
+    //        var position = positions.FirstOrDefault(p => p.Symbol == botInstance.Symbol && p.PositionAmt != 0);
+
+    //        if (position == null)
+    //        {
+    //            Console.WriteLine($"No open position found for {botInstance.Symbol}");
+    //            return;
+    //        }
+
+    //        var side = position.PositionAmt > 0 ? Side.SELL : Side.BUY;
+
+    //        var openOrdersRequest = new RestRequest("/fapi/v1/openOrders", Method.Get);
+    //        openOrdersRequest.AddQueryParameter("symbol", botInstance.Symbol);
+    //        var openOrdersResponse = await ExecuteAsync(openOrdersRequest, requireSignature: true);
+
+    //        if (!openOrdersResponse.IsSuccessful)
+    //        {
+    //            Console.WriteLine($"Не удалось получить открытые ордера: {openOrdersResponse.Content}");
+    //            return;
+    //        }
+
+    //        var openOrders = JsonConvert.DeserializeObject<List<Order>>(openOrdersResponse.Content);
+    //        var existingStopLossOrder = openOrders?.FirstOrDefault(o => o.Symbol == botInstance.Symbol && o.Type == "STOP_MARKET" && o.Side == side.ToString());
+
+    //        if (existingStopLossOrder != null)
+    //        {
+    //            Console.WriteLine($"Существующий стоп-лосс ордер найден для {botInstance.Symbol}, отмена ордера...");
+    //            var cancelOrderRequest = new RestRequest("/fapi/v1/order", Method.Delete);
+    //            cancelOrderRequest.AddQueryParameter("symbol", botInstance.Symbol);
+    //            cancelOrderRequest.AddQueryParameter("orderId", existingStopLossOrder.OrderId.ToString());
+    //            var cancelOrderResponse = await ExecuteAsync(cancelOrderRequest, requireSignature: true);
+
+    //            if (!cancelOrderResponse.IsSuccessful)
+    //            {
+    //                Console.WriteLine($"Не удалось отменить существующий стоп-лосс ордер: {cancelOrderResponse.Content}");
+    //                return;
+    //            }
+    //            Console.WriteLine($"Существующий стоп-лосс ордер отменен.");
+    //        }
+
+
+    //        var stopLossRequest = new RestRequest("/fapi/v1/order", Method.Post);
+    //        stopLossRequest.AddQueryParameter("symbol", botInstance.Symbol);
+    //        stopLossRequest.AddQueryParameter("side", side);
+    //        stopLossRequest.AddQueryParameter("type", OrderType.ыещ);
+    //        stopLossRequest.AddQueryParameter("price", (decimal)stopLossPrice);
+    //        stopLossRequest.AddQueryParameter("quantity", (decimal)Math.Abs(position.PositionAmt));
+    //        stopLossRequest.AddQueryParameter("timeInForce", TimeInForce.GTC); 
+
+    //        var stopLossResponse = await ExecuteAsync(stopLossRequest, requireSignature: true);
+
+    //        if (stopLossResponse.IsSuccessful)
+    //        {
+    //            Console.WriteLine($"Стоп-лосс ордер успешно размещен на уровне {stopLossPrice} для {botInstance.Symbol}");
+    //        }
+    //        else
+    //        {
+    //            Console.WriteLine($"Не удалось разместить стоп-лосс ордер: {stopLossResponse.Content}");
+    //        }
+    //    }
+    //    catch (Exception ex)
+    //    {
+    //        Console.WriteLine($"Ошибка при размещении стоп-лосс ордера: {ex.Message}");
+    //    }
+    //}
+
+
+    public async Task SetTrailingStopAsync(BotInstance botInstance)
     {
         try
-        {            
+        {
             var positionRequest = new RestRequest("/fapi/v2/positionRisk", Method.Get);
             positionRequest.AddQueryParameter("symbol", botInstance.Symbol);
             var positionResponse = await ExecuteAsync(positionRequest, requireSignature: true);
@@ -154,31 +235,32 @@ public class BinanceRestClient
                 return;
             }
 
-            string side = position.PositionAmt > 0 ? "SELL" : "BUY";
+            var side = position.PositionAmt > 0 ? Side.SELL : Side.BUY;
 
-            var stopLossRequest = new RestRequest("/fapi/v1/order", Method.Post);
-            stopLossRequest.AddQueryParameter("symbol", botInstance.Symbol);
-            stopLossRequest.AddQueryParameter("side", side);  
-            stopLossRequest.AddQueryParameter("type", OrderType.MARKET); 
-            stopLossRequest.AddQueryParameter("stopPrice", stopLossPrice);  
-            stopLossRequest.AddQueryParameter("quantity", Math.Abs(position.PositionAmt));  
-            var stopLossResponse = await ExecuteAsync(stopLossRequest, requireSignature: true);
+            var trailingStopRequest = new RestRequest("/fapi/v1/order", Method.Post);
+            trailingStopRequest.AddQueryParameter("symbol", botInstance.Symbol);
+            trailingStopRequest.AddQueryParameter("side", side);
+            trailingStopRequest.AddQueryParameter("type", "TRAILING_STOP_MARKET");
+            trailingStopRequest.AddQueryParameter("callbackRate", 1m);
+            trailingStopRequest.AddQueryParameter("quantity", (decimal)Math.Abs(position.PositionAmt));
+                       
 
-            if (stopLossResponse.IsSuccessful)
+            var response = await ExecuteAsync(trailingStopRequest, requireSignature: true);
+
+            if (response.IsSuccessful)
             {
-                Console.WriteLine($"Stop-loss order placed successfully at {stopLossPrice} for {botInstance.Symbol}");
+                Console.WriteLine($"Trailing Stop успешно установлен");
             }
             else
             {
-                Console.WriteLine($"Failed to place stop-loss order: {stopLossResponse.Content}");
+                Console.WriteLine($"Ошибка установки Trailing Stop: {response.Content}");
             }
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error placing stop-loss order: {ex.Message}");
+            Console.WriteLine($"Ошибка: {ex.Message}");
         }
     }
-
 
     public async Task<float> GetCurrentPriceAsync(string symbol)
     {

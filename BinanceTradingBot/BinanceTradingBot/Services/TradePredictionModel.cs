@@ -93,10 +93,10 @@ public class TradePredictionModel : ITradePredictionModel
 
         var klinesTasks = new[]
         {
-            _client.GetKlinesAsync(_symbol, "1d", 30),
-            _client.GetKlinesAsync(_symbol, "4h", 30),
-            _client.GetKlinesAsync(_symbol, "5m", 30),
-            _client.GetKlinesAsync(_symbol, "1m", 30)
+            _client.GetKlinesAsync(_symbol, "1d", 100),
+            _client.GetKlinesAsync(_symbol, "4h", 100),
+            _client.GetKlinesAsync(_symbol, "5m", 100),
+            _client.GetKlinesAsync(_symbol, "1m", 100)
         };
 
         var klines = await Task.WhenAll(klinesTasks);
@@ -123,11 +123,21 @@ public class TradePredictionModel : ITradePredictionModel
 
     public List<TradeData> CreateTradeData(IEnumerable<Kline> klines, List<float> prices, string timeframe, TechnicalIndicatorsService indicatorsService)
     {
-        if (prices == null || !prices.Any())
+        var timeframeMapping = new Dictionary<string, float>
+    {
+        { "1m", 1 },
+        { "5m", 5 },
+        { "4h", 240 },
+        { "1d", 1440 }
+    };
+
+        if (!timeframeMapping.ContainsKey(timeframe))
         {
-            Console.WriteLine($"Insufficient data for {timeframe} timeframe.");
+            Console.WriteLine($"Unknown timeframe: {timeframe}");
             return new List<TradeData>();
         }
+
+        var timeframeValue = timeframeMapping[timeframe];
 
         return klines.Select(k => new TradeData
         {
@@ -137,10 +147,10 @@ public class TradePredictionModel : ITradePredictionModel
             Rsi = indicatorsService.CalculateRsi(prices),
             Volume = k.Volume,
             Trend = k.Close > k.Open ? 1f : 0f,
-            Symbol = _symbol,
-            Timeframe = timeframe
+            Timeframe = timeframeValue 
         }).ToList();
     }
+
 
     public async Task TrainModelWithNewDataAsync()
     {
@@ -165,8 +175,15 @@ public class TradePredictionModel : ITradePredictionModel
             return;
         }
 
-        var gradientBoostingPipeline = _mlContext.Transforms.Concatenate("Features", nameof(TradeData.Price), nameof(TradeData.MacdSignal), nameof(TradeData.MovingAverage), nameof(TradeData.Rsi), nameof(TradeData.Volume), nameof(TradeData.Timeframe), nameof(TradeData.Trend))
+        var gradientBoostingPipeline = _mlContext.Transforms.CopyColumns("Label", nameof(TradeData.Trend)) 
+            .Append(_mlContext.Transforms.Concatenate("Features",
+                nameof(TradeData.Price),
+                nameof(TradeData.MacdSignal),
+                nameof(TradeData.MovingAverage),
+                nameof(TradeData.Rsi),
+                nameof(TradeData.Volume)))
             .Append(_mlContext.Regression.Trainers.LightGbm());
+
         _gradientBoostingModel = gradientBoostingPipeline.Fit(dataView);
 
         var directory = Path.GetDirectoryName(_modelFile);
@@ -179,6 +196,7 @@ public class TradePredictionModel : ITradePredictionModel
 
         Console.WriteLine("Model trained and saved.");
     }
+
 
     public string Predict(TradeData input)
     {

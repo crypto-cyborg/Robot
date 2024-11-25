@@ -1,7 +1,5 @@
 ﻿using BinanceTradingBot.Models;
 using BinanceTradingBot.Services;
-using CryptoExchange.Net.CommonObjects;
-using Microsoft.ML;
 
 namespace BinanceTradingBot.Interfaces;
 

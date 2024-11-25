@@ -30,7 +30,8 @@ public class TradingBotController : ControllerBase
             Symbol = request.Symbol,
             TradeAmount = request.TradeAmount,
             Leverage = request.Leverage,
-            Client = new BinanceRestClient(binanceTestnet, request.ApiKey, request.ApiSecret),            
+            Client = new BinanceRestClient(binanceTestnet, request.ApiKey, request.ApiSecret),   
+            PredictionModel = new TradePredictionModel(),
         };
 
         await _tradingBotService.StartBotAsync(botInstance);
