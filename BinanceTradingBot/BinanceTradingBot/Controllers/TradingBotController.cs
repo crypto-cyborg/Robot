@@ -34,7 +34,7 @@ public class TradingBotController : ControllerBase
             PredictionModel = new TradePredictionModel(),
         };
 
-        await _tradingBotService.StartBotAsync(botInstance);
+        _tradingBotService.StartBotAsync(botInstance);
         return Ok("Bot started successfully.");
     }
 

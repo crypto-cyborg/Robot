@@ -28,6 +28,7 @@ public class TradePredictionModel : ITradePredictionModel
         _client = client;
         _symbol = symbol;
         _modelFile = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Models", $"{_symbol}GradientBoostingModel.zip");
+        Console.WriteLine($"Path: {_modelFile}");
 
         if (ModelExists())
         {
