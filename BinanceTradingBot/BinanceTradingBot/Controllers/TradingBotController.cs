@@ -12,8 +12,10 @@ namespace BinanceTradingBot.Controllers;
 public class TradingBotController : ControllerBase
 {
     private readonly ITradingBotService _tradingBotService;
-    private string binanceReal = "https://fapi.binance.com/api";
+    private string binanceReal = "https://fapi.binance.comREAL/api";
     private string binanceTestnet = "https://testnet.binancefuture.com";
+    private string sandboxTestnet = "https://crypto-ciborg.org/sandbox";
+    BotInstance botInstance;
 
     public TradingBotController(ITradingBotService tradingBotService)
     {
@@ -23,18 +25,32 @@ public class TradingBotController : ControllerBase
     [HttpPost("start")]
     public async Task<IActionResult> StartBot([FromBody] StartBotRequest request)
     {
-        BotInstance botInstance = new BotInstance()
+        if (request.IsRealTrading)
+        {
+            botInstance = new BotInstance()
+            {
+                ApiKey = request.ApiKey,
+                ApiSecret = request.ApiSecret,
+                Symbol = request.Symbol,
+                TradeAmount = request.TradeAmount,
+                Leverage = request.Leverage,
+                Client = new BinanceRestClient(binanceReal, request.ApiKey, request.ApiSecret),   
+                PredictionModel = new TradePredictionModel(),
+            };
+        }
+
+        botInstance = new BotInstance()
         {
             ApiKey = request.ApiKey,
             ApiSecret = request.ApiSecret,
             Symbol = request.Symbol,
             TradeAmount = request.TradeAmount,
             Leverage = request.Leverage,
-            Client = new BinanceRestClient(binanceTestnet, request.ApiKey, request.ApiSecret),   
+            Client = new BinanceRestClient(sandboxTestnet, request.ApiKey, request.ApiSecret),   
             PredictionModel = new TradePredictionModel(),
         };
-
-        await _tradingBotService.StartBotAsync(botInstance);
+        
+        _tradingBotService.StartBotAsync(botInstance);
         return Ok("Bot started successfully.");
     }
 
