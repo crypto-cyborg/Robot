@@ -16,5 +16,6 @@ public class BotInstance
     public float TradeAmount { get; set; }
     public int? Leverage { get; set; } 
     public float? PreviousStopLoss { get; set; } 
-    public float? PurchasePrice { get; set; }  
+    public float? PurchasePrice { get; set; }
+
 }

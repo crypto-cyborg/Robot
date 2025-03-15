@@ -7,7 +7,7 @@ using RestSharp;
 
 namespace BinanceTradingBot.Services;
 
-public class SandboxClient
+public class SandboxClient : IClientService
 {
     
     private readonly RestClient _client;
@@ -60,13 +60,13 @@ public class SandboxClient
         return orderResponse.Id.ToString(); 
     }
 
-    public async Task<string> SetTrailingStopAsync(decimal trailingStop)
+    public async Task SetTrailingStopAsync(BotInstance botInstance)
     {
         var request = new RestRequest($"/api/SpotTrading/settrailingstop/{_walletId}", Method.Post);
     
         var body = new TrailingStopRequest
         {
-            TrailingStopDistance = trailingStop
+            Symbol = botInstance.Symbol,            
         };
     
         request.AddJsonBody(body);
@@ -77,8 +77,7 @@ public class SandboxClient
         {
             throw new Exception($"Ошибка при установке трейлинг-стопа: {response.ErrorMessage}");
         }
-
-        return response.Content ?? "Trailing Stop установлен";
+       
     }
 
     public async Task<float> GetCurrentPriceAsync(string symbol)

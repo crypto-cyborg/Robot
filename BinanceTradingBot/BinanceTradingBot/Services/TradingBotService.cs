@@ -45,25 +45,47 @@ public class TradingBotService : ITradingBotService
                             var FiveMinPrediction = botInstance.PredictionModel.Predict(multiTimeframeData.FiveMinuteData.Last());
                             var OneMinPrediction = botInstance.PredictionModel.Predict(multiTimeframeData.OneMinuteData.Last());
 
-                            if (FiveMinPrediction == "long")
+                            if (botInstance.Client != null)
                             {
-                                await botInstance.Client.PlaceOrderAsync(botInstance, Side.BUY);
-                                side = Side.SELL;
-                                await botInstance.Client.SetTrailingStopAsync(botInstance);
-                                Console.WriteLine($"Executed BUY order for {botInstance.Symbol}.");
+                                if (FiveMinPrediction == "long")
+                                {
+                                    await botInstance.Client.PlaceOrderAsync(botInstance, Side.BUY);
+                                    side = Side.SELL;
+                                    await botInstance.Client.SetTrailingStopAsync(botInstance);
+                                    Console.WriteLine($"Executed BUY order for {botInstance.Symbol}.");
+                                }
+                                else if (FiveMinPrediction == "short")
+                                {
+                                    await botInstance.Client.PlaceOrderAsync(botInstance, Side.SELL);
+                                    side = Side.BUY;
+                                    await botInstance.Client.SetTrailingStopAsync(botInstance);
+                                    Console.WriteLine($"Executed SELL order for {botInstance.Symbol}.");
+                                }
                             }
-                            else if (FiveMinPrediction == "short")
+                            else
                             {
-                                await botInstance.Client.PlaceOrderAsync(botInstance, Side.SELL);
-                                side = Side.BUY;
-                                await botInstance.Client.SetTrailingStopAsync(botInstance);
-                                Console.WriteLine($"Executed SELL order for {botInstance.Symbol}.");
+                                if (FiveMinPrediction == "long")
+                                {
+                                    await botInstance.SandboxClient.PlaceOrderAsync(botInstance, Side.BUY);
+                                    side = Side.SELL;
+                                    await botInstance.SandboxClient.SetTrailingStopAsync(botInstance);
+                                    Console.WriteLine($"Executed BUY order for {botInstance.Symbol}.");
+                                }
+                                else if (FiveMinPrediction == "short")
+                                {
+                                    await botInstance.SandboxClient.PlaceOrderAsync(botInstance, Side.SELL);
+                                    side = Side.BUY;
+                                    await botInstance.SandboxClient.SetTrailingStopAsync(botInstance);
+                                    Console.WriteLine($"Executed SELL order for {botInstance.Symbol}.");
+                                }
                             }
+     
+
                         }
                         else
                         {
-                           Console.WriteLine($"Position is already open for {botInstance.Symbol}, updating trailing stop.");
-                            
+                            Console.WriteLine($"Position is already open for {botInstance.Symbol}, updating trailing stop.");
+
                         }
                         await Task.Delay(TimeSpan.FromMinutes(1), botInstance.CancellationTokenSource.Token);
                     }

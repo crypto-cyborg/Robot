@@ -42,8 +42,7 @@ public class TradingBotController : ControllerBase
         {
             botInstance = new BotInstance()
             {
-                ApiKey = request.ApiKey,
-                ApiSecret = request.ApiSecret,
+                WalletId = request.WalletId,
                 Symbol = request.Symbol,
                 TradeAmount = request.TradeAmount,
                 Leverage = request.Leverage,
