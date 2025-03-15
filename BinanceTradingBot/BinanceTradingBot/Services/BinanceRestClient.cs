@@ -9,7 +9,7 @@ using BinanceTradingBot.BinanceResponses;
 
 namespace BinanceTradingBot.Services;
 
-public class BinanceRestClient
+public class BinanceRestClient : IClientService
 {
     private readonly RestClient _client;
     private readonly string _apiKey;
@@ -79,7 +79,7 @@ public class BinanceRestClient
         {            
             var leverageRequest = new RestRequest("/fapi/v1/leverage", Method.Post);
             leverageRequest.AddQueryParameter("symbol", botInstance.Symbol);
-            leverageRequest.AddQueryParameter("leverage", botInstance.Leverage);
+            leverageRequest.AddQueryParameter("leverage", (int)botInstance.Leverage);
             
             var leverageResponse = await ExecuteAsync(leverageRequest, requireSignature: true);
 
@@ -96,7 +96,7 @@ public class BinanceRestClient
                 }
 
                 var quantity = botInstance.TradeAmount / price;
-                quantity *= botInstance.Leverage;
+                quantity *= (int)botInstance.Leverage;
                 quantity = (float)Math.Round(quantity, 3);
 
                 var request = new RestRequest("/fapi/v1/order", Method.Post);

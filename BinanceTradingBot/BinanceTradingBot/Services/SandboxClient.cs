@@ -12,11 +12,13 @@ public class SandboxClient
     
     private readonly RestClient _client;
     private readonly IResponceConverter _responceConverter;
+    private readonly string _walletId;
 
-    public SandboxClient(string baseUrl, string apiKey, string apiSecret)
+    public SandboxClient(string baseUrl, string walletId)
     {
         _client = new RestClient(baseUrl);
         _responceConverter = new ResponceConverter();
+        _walletId = walletId;
     }
     
 
@@ -57,12 +59,26 @@ public class SandboxClient
         
         return orderResponse.Id.ToString(); 
     }
-    
 
-
-    public async Task SetTrailingStopAsync(BotInstance botInstance)
+    public async Task<string> SetTrailingStopAsync(decimal trailingStop)
     {
-        
+        var request = new RestRequest($"/api/SpotTrading/settrailingstop/{_walletId}", Method.Post);
+    
+        var body = new TrailingStopRequest
+        {
+            TrailingStopDistance = trailingStop
+        };
+    
+        request.AddJsonBody(body);
+
+        var response = await _client.ExecuteAsync(request);
+
+        if (!response.IsSuccessful)
+        {
+            throw new Exception($"Ошибка при установке трейлинг-стопа: {response.ErrorMessage}");
+        }
+
+        return response.Content ?? "Trailing Stop установлен";
     }
 
     public async Task<float> GetCurrentPriceAsync(string symbol)

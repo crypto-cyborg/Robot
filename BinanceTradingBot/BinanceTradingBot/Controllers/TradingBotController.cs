@@ -38,18 +38,20 @@ public class TradingBotController : ControllerBase
                 PredictionModel = new TradePredictionModel(),
             };
         }
-
-        botInstance = new BotInstance()
+        else
         {
-            ApiKey = request.ApiKey,
-            ApiSecret = request.ApiSecret,
-            Symbol = request.Symbol,
-            TradeAmount = request.TradeAmount,
-            Leverage = request.Leverage,
-            Client = new BinanceRestClient(sandboxTestnet, request.ApiKey, request.ApiSecret),   
-            PredictionModel = new TradePredictionModel(),
-        };
-        
+            botInstance = new BotInstance()
+            {
+                ApiKey = request.ApiKey,
+                ApiSecret = request.ApiSecret,
+                Symbol = request.Symbol,
+                TradeAmount = request.TradeAmount,
+                Leverage = request.Leverage,
+                SandboxClient = new SandboxClient(sandboxTestnet, request.ApiKey),
+                PredictionModel = new TradePredictionModel(),
+            };
+        }
+
         _tradingBotService.StartBotAsync(botInstance);
         return Ok("Bot started successfully.");
     }
