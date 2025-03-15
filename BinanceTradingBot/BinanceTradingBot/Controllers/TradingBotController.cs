@@ -58,7 +58,14 @@ public class TradingBotController : ControllerBase
     [HttpPost("stop")]
     public IActionResult StopBot([FromBody] StopBotRequest request)
     {
-        _tradingBotService.StopBot(request.ApiKey);
+        if(request.ApiKey != null)
+        {
+            _tradingBotService.StopBot(request.ApiKey);
+        }
+        else
+        {
+            _tradingBotService.StopBot(request.WalletId);
+        }
         return Ok("Bot stopped successfully.");
     }    
     
